@@ -7,3 +7,6 @@
 build/
 /apps/xasm/xasm
 /apps/xhl/xhl
+/apps/wc/wc
+/apps/head/head
+/apps/tail/tail
