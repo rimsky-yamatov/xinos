@@ -4,5 +4,6 @@
 *.elf
 .*.d
 *.efi
-xasm
 build/
+/apps/xasm/xasm
+/apps/xhl/xhl
