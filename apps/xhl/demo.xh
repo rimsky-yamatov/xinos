@@ -8,16 +8,16 @@ func fib() {
 }
 n = 10;
 fib();
-print "fib(10) = ", a;
+printf("fib(%d) = %d\n", n, a);
 var k = 1;
 while (k <= 15) {
-  if (k % 15 == 0) { print "FizzBuzz"; putc 10; }
-  else if (k % 3 == 0) { print "Fizz"; putc 10; }
-  else if (k % 5 == 0) { print "Buzz"; putc 10; }
-  else { print k; }
+  if (k % 15 == 0) { printf("FizzBuzz\n"); }
+  else if (k % 3 == 0) { printf("Fizz\n"); }
+  else if (k % 5 == 0) { printf("Buzz\n"); }
+  else { printf("%d\n", k); }
   k = k + 1;
 }
 var x = 7;
-if (x > 3 && x < 10 || 0) { print "in range"; putc 10; }
-if (!(x == 7)) { print "bad"; } else { print -x * 2 + 1; }
-print 'A'; putc 'B'; putc 10;
+if (x > 3 && x < 10 || 0) { printf("%s\n", "in range"); }
+if (!(x == 7)) { printf("bad\n"); } else { printf("%d%%\n", -x * 2 + 1); }
+printf("%c%c\n", 'A', 66);

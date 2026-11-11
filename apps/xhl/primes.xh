@@ -9,6 +9,7 @@ while (n <= 100) {
     if (n % d == 0) { ok = 0; }
     d = d + 1;
   }
-  if (ok) { print n; }
+  if (ok) { printf("%d ", n); }
   n = n + 1;
 }
+printf("\n");

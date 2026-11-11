@@ -1,8 +1,8 @@
-// XinOS 簡易高水準言語のサンプル
+// XinOS 簡易高水準言語のサンプル(入出力は C 風の printf / scanf)
 var i = 1;
 var sum = 0;
 while (i <= 10) {
   sum = sum + i;
   i = i + 1;
 }
-print "sum(1..10) = ", sum;
+printf("sum(1..10) = %d\n", sum);
