@@ -1,0 +1,16 @@
+; 1から10の合計を出力
+  mov a, 0
+  mov b, 1
+loop:
+  add a, b
+  add b, 1
+  cmp b, 11
+  jl loop
+  out a
+  mov c, 'O'
+  outc c
+  mov c, 'K'
+  outc c
+  mov c, 10
+  outc c
+  halt
