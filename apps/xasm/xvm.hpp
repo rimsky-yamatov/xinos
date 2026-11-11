@@ -8,7 +8,9 @@
 //   push x / pop reg / call label / ret
 //   ld reg, addr                          reg = mem[addr]
 //   st addr, x                            mem[addr] = x
-//   out x (整数+改行) / outc x (1文字) / halt
+//   out x (整数+改行) / outn x (整数のみ) / outc x (1文字)
+//   in reg (整数を読む) / inch reg (1文字を読む) / inok reg (直前の入力の結果: 1=成功 0=不一致 -1=EOF)
+//   skipws (空白を読み飛ばす) / halt
 #pragma once
 
 #include <cctype>
@@ -19,11 +21,13 @@
 namespace xvm {
 
 enum Op { MOV, ADD, SUB, MUL, DIV, MOD, CMP, JMP, JE, JNE, JL, JG,
-          PUSH, POP, CALL, RET, LD, ST, OUT, OUTC, HALT, kNumOps };
+          PUSH, POP, CALL, RET, LD, ST, OUT, OUTN, OUTC, IN, INCH, INOK, SKIPWS, HALT,
+          kNumOps };
 
 inline const char* const kNames[kNumOps] = {
   "mov", "add", "sub", "mul", "div", "mod", "cmp", "jmp", "je", "jne", "jl",
-  "jg", "push", "pop", "call", "ret", "ld", "st", "out", "outc", "halt"};
+  "jg", "push", "pop", "call", "ret", "ld", "st", "out", "outn", "outc", "in",
+  "inch", "inok", "skipws", "halt"};
 
 enum Kind { kNone, kReg, kImm, kLabel };
 struct Operand { Kind kind; long v; char name[32]; };
@@ -39,6 +43,7 @@ inline int nlabels = 0;
 inline long regs[4], stk[kStack], mem[kMemWords];
 inline int sp = 0;
 inline bool zf = false, lf = false;
+inline long last_in = 1;
 
 inline bool ParseOperand(char* s, Operand* o) {
   o->kind = kNone; o->v = 0; o->name[0] = 0;
@@ -72,7 +77,7 @@ inline char* Trim(char* s) {
 }
 
 inline void Reset() {
-  nprog = 0; nlabels = 0; sp = 0; zf = lf = false;
+  nprog = 0; nlabels = 0; sp = 0; zf = lf = false; last_in = 1;
   for (long& r : regs) r = 0;
   for (long& m : mem) m = 0;
 }
@@ -184,7 +189,33 @@ inline int Run() {
         mem[addr] = Val(in.b); break;
       }
       case OUT:  printf("%ld\n", Val(in.a)); break;
+      case OUTN: printf("%ld", Val(in.a)); break;
       case OUTC: printf("%c", (char)Val(in.a)); break;
+      case IN: {
+        if (in.a.kind != kReg) goto bad;
+        fflush(stdout);
+        long v = 0;
+        int r = scanf(" %ld", &v);
+        last_in = r == 1 ? 1 : (r == EOF ? -1 : 0);
+        regs[in.a.v] = r == 1 ? v : 0;
+        break;
+      }
+      case INCH: {
+        if (in.a.kind != kReg) goto bad;
+        fflush(stdout);
+        int c = getchar();
+        last_in = c == EOF ? -1 : 1;
+        regs[in.a.v] = c == EOF ? 0 : c;
+        break;
+      }
+      case INOK: if (in.a.kind != kReg) goto bad; regs[in.a.v] = last_in; break;
+      case SKIPWS: {
+        fflush(stdout);
+        int c;
+        while ((c = getchar()) != EOF && isspace(c)) {}
+        if (c != EOF) ungetc(c, stdin);
+        break;
+      }
       case HALT: return 0;
       default: break;
     }
