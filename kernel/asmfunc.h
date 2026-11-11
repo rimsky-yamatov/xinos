@@ -5,6 +5,10 @@
 extern "C" {
   void IoOut32(uint16_t addr, uint32_t data);
   uint32_t IoIn32(uint16_t addr);
+  void IoOut8(uint16_t addr, uint8_t data);
+  void IoOut16(uint16_t addr, uint16_t data);
+  uint8_t IoIn8(uint16_t addr);
+  uint16_t IoIn16(uint16_t addr);
   uint16_t GetCS(void);
   void LoadIDT(uint16_t limit, uint64_t offset);
   void LoadGDT(uint16_t limit, uint64_t offset);

@@ -19,6 +19,34 @@ IoIn32:
     in eax, dx
     ret
 
+global IoOut8  ; void IoOut8(uint16_t addr, uint8_t data);
+IoOut8:
+    mov dx, di
+    mov eax, esi
+    out dx, al
+    ret
+
+global IoOut16  ; void IoOut16(uint16_t addr, uint16_t data);
+IoOut16:
+    mov dx, di
+    mov eax, esi
+    out dx, ax
+    ret
+
+global IoIn8  ; uint8_t IoIn8(uint16_t addr);
+IoIn8:
+    mov dx, di
+    xor eax, eax
+    in al, dx
+    ret
+
+global IoIn16  ; uint16_t IoIn16(uint16_t addr);
+IoIn16:
+    mov dx, di
+    xor eax, eax
+    in ax, dx
+    ret
+
 global GetCS  ; uint16_t GetCS(void);
 GetCS:
     xor eax, eax  ; also clears upper 32 bits of rax
