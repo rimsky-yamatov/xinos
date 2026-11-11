@@ -32,6 +32,7 @@
 #include "message.hpp"
 #include "timer.hpp"
 #include "acpi.hpp"
+#include "persist.hpp"
 #include "keyboard.hpp"
 #include "task.hpp"
 #include "terminal.hpp"
@@ -201,6 +202,12 @@ extern "C" void KernelMainNewStack(
   fat::Initialize(volume_image);
   InitializeFont();
   InitializePCI();
+
+  // 永続ディスクがあれば、そのFATボリュームをルートとして使う
+  if (persist::Mount()) {
+    fat::Initialize(persist::Volume());
+    printk("persistent disk: %lu MiB mounted\n", persist::VolumeBytes() >> 20);
+  }
 
   InitializeLayer();
   InitializeMainWindow();
