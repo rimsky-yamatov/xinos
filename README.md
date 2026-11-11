@@ -32,6 +32,18 @@ scripts/mkiso.sh          # build/xinos.iso
 scripts/run.sh            # QEMU (UEFI) で起動
 ```
 
+## デスクトップ
+- 左下の「XinOS」ボタンでスタートメニュー(Terminal / Editor / Paint / Viewer / Blocks / Cube / Eye / Stars / Reboot / Shut down)
+- デスクトップ左のアイコンをダブルクリックで起動
+
 ## 標準プログラム
 - シェル組み込み: `help` `ver` `uname` `uptime` `echo` `clear` `ls` `cat` `date` `memstat` ほか
-- `xasm <file.xa>`: 簡易アセンブラ+VM(サンプル: `hello.xa`)
+- `xasm <file.xa>`: 簡易アセンブラ+VM(命令は `apps/xasm/xvm.hpp` 参照、サンプル `hello.xa`)
+- `xhl [-S] <file.xh>`: 簡易高水準言語。xasmへコンパイルして実行(`-S` で生成コードを表示)
+  - サンプル: `hello.xh` `demo.xh` `primes.xh`
+- `wc` `head` `tail`: ファイル/標準入力(パイプ可)を処理
+- そのほかMikanOS由来: `tedit` `paint` `gview` `blocks` `cube` `grep` `sort` `more` `cp` など
+
+## 今後の予定
+- 永続ディスク(virtio-blk)とディレクトリ作成(`mkdir` / `cd`)
+- テキストエディタの強化、ウィンドウ付きファイルマネージャ
