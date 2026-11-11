@@ -1,2 +1,7 @@
 .*.un~
 *.img
+*.o
+*.elf
+.*.d
+*.efi
+xasm
