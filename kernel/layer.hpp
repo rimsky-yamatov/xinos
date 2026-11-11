@@ -103,6 +103,8 @@ class LayerManager {
 };
 
 extern LayerManager* layer_manager;
+/** @brief デスクトップ背景レイヤーのID */
+extern unsigned int background_layer_id;
 
 class ActiveLayer {
  public:

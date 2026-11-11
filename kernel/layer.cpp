@@ -254,6 +254,8 @@ void ActiveLayer::Activate(unsigned int layer_id) {
 ActiveLayer* active_layer;
 std::map<unsigned int, uint64_t>* layer_task_map;
 
+unsigned int background_layer_id = 0;
+
 void InitializeLayer() {
   const auto screen_size = ScreenSize();
 
@@ -263,6 +265,7 @@ void InitializeLayer() {
 
   auto console_window = std::make_shared<Window>(
       Console::kColumns * 8, Console::kRows * 16, screen_config.pixel_format);
+  console_window->SetTransparentColor(kDesktopBGColor);  // アイコンを隠さない
   console->SetWindow(console_window);
 
   screen = new FrameBuffer;
@@ -286,6 +289,7 @@ void InitializeLayer() {
 
   layer_manager->UpDown(bglayer_id, 0);
   layer_manager->UpDown(console->LayerID(), 1);
+  background_layer_id = bglayer_id;
 
   active_layer = new ActiveLayer{*layer_manager};
 

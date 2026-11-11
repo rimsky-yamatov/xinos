@@ -281,7 +281,11 @@ Terminal::Terminal(Task& task, const TerminalDescriptor* term_desc)
   if (term_desc) {
     show_window_ = term_desc->show_window;
     for (int i = 0; i < files_.size(); ++i) {
-      files_[i] = term_desc->files[i];
+      if (term_desc->files[i]) {
+        files_[i] = term_desc->files[i];
+      } else {
+        files_[i] = std::make_shared<TerminalFileDescriptor>(*this);
+      }
     }
   } else {
     show_window_ = true;
@@ -1170,4 +1174,15 @@ void PipeDescriptor::FinishWrite() {
   __asm__("cli");
   task_.SendMessage(msg);
   __asm__("sti");
+}
+
+/** @brief デスクトップ(スタートメニュー等)からコマンドを実行する端末タスクを起動する．
+ *
+ * show_window が false なら端末ウィンドウは出さず、コマンド終了でタスクも終了する．
+ */
+void LaunchTerminalCommand(const char* command, bool show_window) {
+  auto desc = new TerminalDescriptor{command, !show_window, show_window, {}};
+  task_manager->NewTask()
+    .InitContext(TaskTerminal, reinterpret_cast<int64_t>(desc))
+    .Wakeup();
 }

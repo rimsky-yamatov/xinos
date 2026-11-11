@@ -5,6 +5,7 @@
  */
 
 #include "graphics.hpp"
+#include "desktop.hpp"
 
 void RGBResv8BitPerColorPixelWriter::Write(Vector2D<int> pos, const PixelColor& c) {
   auto p = PixelAt(pos);
@@ -52,14 +53,7 @@ void DrawDesktop(PixelWriter& writer) {
                 {0, height - 50},
                 {width, 50},
                 {1, 8, 17});
-  FillRectangle(writer,
-                {0, height - 50},
-                {width / 5, 50},
-                {80, 80, 80});
-  DrawRectangle(writer,
-                {10, height - 40},
-                {30, 30},
-                {160, 160, 160});
+  desktop::DrawDecorations(writer);
 }
 
 FrameBufferConfig screen_config;
