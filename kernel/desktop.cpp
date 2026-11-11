@@ -4,6 +4,7 @@
 #include <cstring>
 #include <memory>
 
+#include "console.hpp"
 #include "font.hpp"
 #include "graphics.hpp"
 #include "layer.hpp"
@@ -11,6 +12,7 @@
 #include "window.hpp"
 
 extern TimerManager* timer_manager;
+extern Console* console;
 void LaunchTerminalCommand(const char* command, bool show_window);
 
 namespace {
@@ -208,7 +210,8 @@ bool OnMousePress(Vector2D<int> pos) {
 
   // デスクトップアイコン: 最前面が背景レイヤーのときだけ判定
   auto layer = layer_manager->FindLayerByPosition(pos, mouse_layer_id);
-  if (layer && layer->ID() == bg_layer_id) {
+  // 背景、または背景色が透過のコンソールレイヤーが最前面ならデスクトップ上のクリック
+  if (layer && (layer->ID() == bg_layer_id || layer->ID() == console->LayerID())) {
     int hit = -1;
     for (int i = 0; i < kNumIcons; ++i) {
       if (Inside(pos, {kIconX - 8, kIconTop + i * kIconPitch - 6},
