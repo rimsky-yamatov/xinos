@@ -61,6 +61,9 @@ MemoryStat BitmapMemoryManager::Stat() const {
 }
 
 bool BitmapMemoryManager::GetBit(FrameID frame) const {
+  if (frame.ID() >= kFrameCount) {
+    return true;  // 管理範囲外は使用中として扱う
+  }
   auto line_index = frame.ID() / kBitsPerMapLine;
   auto bit_index = frame.ID() % kBitsPerMapLine;
 
@@ -68,6 +71,9 @@ bool BitmapMemoryManager::GetBit(FrameID frame) const {
 }
 
 void BitmapMemoryManager::SetBit(FrameID frame, bool allocated) {
+  if (frame.ID() >= kFrameCount) {
+    return;  // ビットマップの管理範囲外(UEFIが巨大なMMIO領域を返す場合がある)
+  }
   auto line_index = frame.ID() / kBitsPerMapLine;
   auto bit_index = frame.ID() % kBitsPerMapLine;
 
