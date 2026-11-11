@@ -20,7 +20,7 @@ for F in resource/*; do
   [ -f "$F" ] && mcopy -i "$FAT" "$F" "::/$(basename "$F")"
 done
 # 付属のサンプル(あれば)
-for F in apps/*/*.xa; do
+for F in apps/*/*.xa apps/*/*.xh; do
   [ -f "$F" ] && mcopy -i "$FAT" "$F" "::/$(basename "$F")"
 done
 
