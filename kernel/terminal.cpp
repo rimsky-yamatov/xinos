@@ -1,4 +1,5 @@
 #include "terminal.hpp"
+#include "persist.hpp"
 
 #include <algorithm>
 #include <array>
@@ -399,6 +400,11 @@ void Terminal::Scroll1() {
 }
 
 void Terminal::ExecuteLine() {
+  ExecuteLineImpl();
+  persist::Sync();  // コマンドで変更されたファイルを永続ディスクへ書き戻す
+}
+
+void Terminal::ExecuteLineImpl() {
   char* command = &linebuf_[0];
   char* first_arg = strchr(&linebuf_[0], ' ');
   char* redir_char = strchr(&linebuf_[0], '>');
@@ -604,9 +610,29 @@ void Terminal::ExecuteLine() {
         PrintToFD(*files_[1], "-%02d%02d\n", -t.TimeZone / 60, -t.TimeZone % 60);
       }
     }
+  } else if (strcmp(command, "sync") == 0) {
+    if (!persist::IsMounted()) {
+      PrintToFD(*files_[2], "no persistent disk\n");
+    } else {
+      const long n = persist::Sync();
+      if (n < 0) {
+        PrintToFD(*files_[2], "sync failed\n");
+      } else {
+        PrintToFD(*files_[1], "synced %ld bytes\n", n);
+      }
+    }
+  } else if (strcmp(command, "disk") == 0) {
+    if (persist::IsMounted()) {
+      PrintToFD(*files_[1], "persistent disk: %lu MiB (virtio-blk)\n",
+                persist::VolumeBytes() >> 20);
+    } else {
+      PrintToFD(*files_[1], "no persistent disk (RAM volume, changes are lost)\n");
+    }
   } else if (strcmp(command, "reboot") == 0) {
+    persist::Sync();
     uefi_rt->ResetSystem(EfiResetWarm, EFI_SUCCESS, 0, nullptr);
   } else if (strcmp(command, "poweroff") == 0) {
+    persist::Sync();
     uefi_rt->ResetSystem(EfiResetShutdown, EFI_SUCCESS, 0, nullptr);
   } else if (strcmp(command, "lsusb") == 0) {
     auto devmgr = usb::xhci::controller->DeviceManager();

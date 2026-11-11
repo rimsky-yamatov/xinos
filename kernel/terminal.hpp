@@ -69,6 +69,7 @@ class Terminal {
   void Scroll1();
 
   void ExecuteLine();
+  void ExecuteLineImpl();
   WithError<int> ExecuteFile(fat::DirectoryEntry& file_entry,
                              char* command, char* first_arg);
   void Print(char32_t c);
