@@ -1,0 +1,14 @@
+// 整数を読み込んで合計と平均を出す(EOFまたは数字以外で終了)
+var x = 0;
+var sum = 0;
+var count = 0;
+printf("numbers: ");
+while (scanf("%d", &x) == 1) {
+  sum = sum + x;
+  count = count + 1;
+}
+if (count > 0) {
+  printf("count=%d sum=%d avg=%d\n", count, sum, sum / count);
+} else {
+  printf("no input\n");
+}
