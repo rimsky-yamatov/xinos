@@ -593,8 +593,8 @@ void Terminal::ExecuteLineImpl() {
   } else if (strcmp(command, "help") == 0) {
     PrintToFD(*files_[1],
         "builtin: help ver uname uptime echo clear ls cat date memstat\n"
-        "         lspci lsusb reboot poweroff noterm\n"
-        "apps   : xasm <file.xa>, rpn, grep, sort, more, cp, tedit ...\n");
+        "         sync disk lspci lsusb reboot poweroff noterm\n"
+        "apps   : xasm xhl wc head tail grep sort more cp tedit paint ...\n");
   } else if (strcmp(command, "date") == 0) {
     EFI_TIME t;
     uefi_rt->GetTime(&t, nullptr);
