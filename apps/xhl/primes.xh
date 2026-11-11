@@ -1,0 +1,14 @@
+// 100までの素数を表示する
+var n = 2;
+var d = 0;
+var ok = 0;
+while (n <= 100) {
+  ok = 1;
+  d = 2;
+  while (d * d <= n) {
+    if (n % d == 0) { ok = 0; }
+    d = d + 1;
+  }
+  if (ok) { print n; }
+  n = n + 1;
+}

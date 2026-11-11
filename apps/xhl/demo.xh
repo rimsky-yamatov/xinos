@@ -1,0 +1,23 @@
+var n = 0;
+var a = 0;
+var b = 1;
+func fib() {
+  var i = 0;
+  var t = 0;
+  while (i < n) { t = a + b; a = b; b = t; i = i + 1; }
+}
+n = 10;
+fib();
+print "fib(10) = ", a;
+var k = 1;
+while (k <= 15) {
+  if (k % 15 == 0) { print "FizzBuzz"; putc 10; }
+  else if (k % 3 == 0) { print "Fizz"; putc 10; }
+  else if (k % 5 == 0) { print "Buzz"; putc 10; }
+  else { print k; }
+  k = k + 1;
+}
+var x = 7;
+if (x > 3 && x < 10 || 0) { print "in range"; putc 10; }
+if (!(x == 7)) { print "bad"; } else { print -x * 2 + 1; }
+print 'A'; putc 'B'; putc 10;
