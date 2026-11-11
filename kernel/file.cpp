@@ -1,5 +1,6 @@
 #include "file.hpp"
 
+#include <cstdarg>
 #include <cstdio>
 #include <vector>
 
