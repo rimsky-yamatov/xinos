@@ -574,6 +574,17 @@ void Terminal::ExecuteLine() {
     PrintToFD(*files_[1], "Phys total: %lu frames (%llu MiB)\n",
         p_stat.total_frames,
         p_stat.total_frames * kBytesPerFrame / 1024 / 1024);
+  } else if (strcmp(command, "ver") == 0 || strcmp(command, "uname") == 0) {
+    PrintToFD(*files_[1], "XinOS 0.1 (based on MikanOS) x86_64\n");
+  } else if (strcmp(command, "uptime") == 0) {
+    const unsigned long sec = timer_manager->CurrentTick() / kTimerFreq;
+    PrintToFD(*files_[1], "up %lu:%02lu:%02lu\n",
+        sec / 3600, (sec / 60) % 60, sec % 60);
+  } else if (strcmp(command, "help") == 0) {
+    PrintToFD(*files_[1],
+        "builtin: help ver uname uptime echo clear ls cat date memstat\n"
+        "         lspci lsusb reboot poweroff noterm\n"
+        "apps   : xasm <file.xa>, rpn, grep, sort, more, cp, tedit ...\n");
   } else if (strcmp(command, "date") == 0) {
     EFI_TIME t;
     uefi_rt->GetTime(&t, nullptr);
