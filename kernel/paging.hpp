@@ -94,5 +94,13 @@ Error FreePageMap(PageMapEntry* table);
 Error SetupPageMaps(LinearAddress4Level addr, size_t num_4kpages,
                     bool writable = true);
 Error CleanPageMaps(LinearAddress4Level addr);
+
+/** @brief 起動時の恒等写像(kPageDirectoryCount GiB)の範囲外にある物理領域を
+ * 仮想アドレス=物理アドレスで(キャッシュ無効で)マップする．
+ *
+ * UEFIが64bit BARを高位アドレス(数百GiB以上)に配置するPCIデバイスのMMIO用．
+ * メモリマネージャの初期化後に呼ぶこと．
+ */
+Error MapIdentityMMIO(uint64_t base, uint64_t bytes);
 Error CopyPageMaps(PageMapEntry* dest, PageMapEntry* src, int part, int start);
 Error HandlePageFault(uint64_t error_code, uint64_t causal_addr);

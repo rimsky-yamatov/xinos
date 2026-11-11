@@ -32,6 +32,44 @@ void SetupIdentityPageTable() {
   SetCR0(GetCR0() & 0xfffeffff); // Clear WP
 }
 
+Error MapIdentityMMIO(uint64_t base, uint64_t bytes) {
+  const uint64_t first = base & ~(kPageSize2M - 1);
+  const uint64_t last = (base + bytes + kPageSize2M - 1) & ~(kPageSize2M - 1);
+  const uint64_t kMask = ~static_cast<uint64_t>(0xfff);
+
+  for (uint64_t addr = first; addr < last; addr += kPageSize2M) {
+    if (addr < kPageDirectoryCount * kPageSize1G) {
+      continue;  // 起動時の恒等写像でカバー済み
+    }
+    const size_t i4 = (addr >> 39) & 0x1ff;
+    const size_t i3 = (addr >> 30) & 0x1ff;
+    const size_t i2 = (addr >> 21) & 0x1ff;
+
+    if (!(pml4_table[i4] & 1)) {
+      auto [ map, err ] = NewPageMap();
+      if (err) {
+        return err;
+      }
+      pml4_table[i4] = reinterpret_cast<uint64_t>(map) | 0x003;
+    }
+    auto pdpt = reinterpret_cast<uint64_t*>(pml4_table[i4] & kMask);
+
+    if (!(pdpt[i3] & 1)) {
+      auto [ map, err ] = NewPageMap();
+      if (err) {
+        return err;
+      }
+      pdpt[i3] = reinterpret_cast<uint64_t>(map) | 0x003;
+    }
+    auto pd = reinterpret_cast<uint64_t*>(pdpt[i3] & kMask);
+
+    pd[i2] = addr | 0x09b;  // Present|RW|PWT|PCD|PS(2MiB)
+  }
+
+  ResetCR3();
+  return MAKE_ERROR(Error::kSuccess);
+}
+
 void InitializePaging() {
   SetupIdentityPageTable();
 }

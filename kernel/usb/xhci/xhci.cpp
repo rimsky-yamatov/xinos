@@ -3,6 +3,7 @@
 #include <cstring>
 #include "logger.hpp"
 #include "pci.hpp"
+#include "paging.hpp"
 #include "interrupt.hpp"
 #include "timer.hpp"
 #include "usb/setupdata.hpp"
@@ -592,6 +593,12 @@ namespace usb::xhci {
     Log(kDebug, "ReadBar: %s\n", xhc_bar.error.Name());
     const uint64_t xhc_mmio_base = xhc_bar.value & ~static_cast<uint64_t>(0xf);
     Log(kDebug, "xHC mmio_base = %08lx\n", xhc_mmio_base);
+
+    // UEFIが64bit BARを恒等写像の範囲外に置く場合に備えてマップする
+    if (auto err = MapIdentityMMIO(xhc_mmio_base, 0x10000)) {
+      Log(kError, "failed to map xHC mmio: %s\n", err.Name());
+      exit(1);
+    }
 
     usb::xhci::controller = new Controller{xhc_mmio_base};
     Controller& xhc = *usb::xhci::controller;
