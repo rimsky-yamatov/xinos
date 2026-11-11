@@ -11,18 +11,7 @@ export MTOOLS_SKIP_CHECK=1
 rm -f "$FAT"
 dd if=/dev/zero of="$FAT" bs=1M count=32 status=none
 mformat -i "$FAT" -F -v XINOS ::
-mmd -i "$FAT" ::/apps
-for MK in apps/*/Makefile; do
-  APP=$(basename "$(dirname "$MK")")
-  [ -f "apps/$APP/$APP" ] && mcopy -i "$FAT" "apps/$APP/$APP" "::/apps/$APP"
-done
-for F in resource/*; do
-  [ -f "$F" ] && mcopy -i "$FAT" "$F" "::/$(basename "$F")"
-done
-# 付属のサンプル(あれば)
-for F in apps/*/*.xa apps/*/*.xh; do
-  [ -f "$F" ] && mcopy -i "$FAT" "$F" "::/$(basename "$F")"
-done
+"$ROOT/scripts/populate.sh" "$FAT"
 
 # --- ESP: ローダ + カーネル + OSボリューム ---
 rm -f "$ESP"
