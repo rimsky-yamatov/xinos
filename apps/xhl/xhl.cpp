@@ -5,8 +5,9 @@
 // 言語:
 //   // コメント
 //   var x = 1;  x = x * 2 + 3;
-//   print "text", x;      文字列はそのまま、式は整数+改行で出力
-//   putc 65;              1文字出力
+//   printf("x = %d, %c, %s\n", x, 65, "str");   書式: %d %c %s(文字列リテラルのみ) %%
+//   scanf("%d", &x);      書式: %d %c と空白。値は読めた個数(失敗なし EOF なら EOF=-1)
+//   while (scanf("%d", &x) == 1) { ... }
 //   if (a < b) { ... } else if (...) { ... } else { ... }
 //   while (cond) { ... }
 //   func name() { ... return; }   name();     引数なし、値の受け渡しはグローバル変数で
@@ -132,10 +133,44 @@ void Norm() {  // a = (a != 0)
 
 void ParseExpr();
 
+// scanf("%d %c", &x, &y) : 読めた個数を a に返す。失敗/EOF で打ち切る。
+void ParseScanf() {
+  Next(); Expect("(");
+  if (tok.type != T_STR) { Error("scanf: format string expected"); return; }
+  char fmt[128]; strcpy(fmt, tok.text); Next();
+  const int lfail = NewLabel(), lend = NewLabel();
+  Emit("mov d, 0");
+  for (const char* f = fmt; *f && !failed; ++f) {
+    if (isspace((unsigned char)*f)) { Emit("skipws"); continue; }
+    if (*f != '%') { Error("scanf: literal '%c' in format is not supported", *f); return; }
+    ++f;
+    if (*f != 'd' && *f != 'c') { Error("scanf: unsupported conversion '%%%c'", *f ? *f : ' '); return; }
+    const char conv = *f;
+    Expect(","); Expect("&");
+    if (tok.type != T_ID) { Error("scanf: variable expected after '&'"); return; }
+    int addr = FindVar(tok.text);
+    if (addr < 0) { Error("undefined variable '%s'", tok.text); return; }
+    Next();
+    Emit(conv == 'd' ? "in a" : "inch a");
+    Emit("inok b"); Emit("cmp b, 1"); Emit("jne L%d", lfail);
+    Emit("st %d, a", addr); Emit("add d, 1");
+  }
+  Expect(")");
+  Emit("jmp L%d", lend);
+  Place(lfail);
+  Emit("cmp d, 0"); Emit("jne L%d", lend);
+  Emit("cmp b, -1"); Emit("jne L%d", lend);
+  Emit("mov d, -1");
+  Place(lend);
+  Emit("mov a, d");
+}
+
 void ParsePrimary() {
   if (tok.type == T_NUM) { Emit("mov a, %ld", tok.num); Next(); return; }
+  if (tok.type == T_ID && strcmp(tok.text, "scanf") == 0) { ParseScanf(); return; }
   if (tok.type == T_ID) {
     int addr = FindVar(tok.text);
+    if (addr < 0 && strcmp(tok.text, "EOF") == 0) { Emit("mov a, -1"); Next(); return; }
     if (addr < 0) { Error("undefined variable '%s'", tok.text); return; }
     Emit("ld a, %d", addr); Next(); return;
   }
@@ -235,20 +270,31 @@ void ParseStmt() {
     if (Accept("=")) { ParseExpr(); } else { Emit("mov a, 0"); }
     Emit("st %d, a", addr); Expect(";"); return;
   }
-  if (IsKw("print")) {
-    Next();
-    for (;;) {
-      if (tok.type == T_STR) {
-        for (const char* s = tok.text; *s; ++s) { Emit("mov c, %d", (unsigned char)*s); Emit("outc c"); }
+  if (IsKw("printf")) {
+    Next(); Expect("(");
+    if (tok.type != T_STR) { Error("printf: format string expected"); return; }
+    char fmt[128]; strcpy(fmt, tok.text); Next();
+    for (const char* f = fmt; *f && !failed; ++f) {
+      if (*f != '%') { Emit("mov c, %d", (unsigned char)*f); Emit("outc c"); continue; }
+      ++f;
+      if (*f == '%') { Emit("mov c, 37"); Emit("outc c"); continue; }
+      if (*f != 'd' && *f != 'c' && *f != 's') {
+        Error("printf: unsupported conversion '%%%c'", *f ? *f : ' '); return;
+      }
+      const char conv = *f;
+      Expect(",");
+      if (conv == 's') {
+        if (tok.type != T_STR) { Error("printf: %%s needs a string literal"); return; }
+        for (const char* t = tok.text; *t; ++t) { Emit("mov c, %d", (unsigned char)*t); Emit("outc c"); }
         Next();
       } else {
-        ParseExpr(); Emit("out a");
+        ParseExpr(); Emit(conv == 'd' ? "outn a" : "outc a");
       }
-      if (failed || !Accept(",")) break;
     }
-    Expect(";"); return;
+    if (IsOp(",")) { Error("printf: too many arguments"); return; }
+    Expect(")"); Expect(";"); return;
   }
-  if (IsKw("putc")) { Next(); ParseExpr(); Emit("outc a"); Expect(";"); return; }
+  if (IsKw("scanf")) { ParseScanf(); Expect(";"); return; }
   if (IsKw("if")) {
     Next(); Expect("("); ParseExpr(); Expect(")");
     int lelse = NewLabel(), lend = NewLabel();
