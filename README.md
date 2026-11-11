@@ -40,7 +40,9 @@ scripts/run.sh            # QEMU (UEFI) で起動
 - シェル組み込み: `help` `ver` `uname` `uptime` `echo` `clear` `ls` `cat` `date` `memstat` ほか
 - `xasm <file.xa>`: 簡易アセンブラ+VM(命令は `apps/xasm/xvm.hpp` 参照、サンプル `hello.xa`)
 - `xhl [-S] <file.xh>`: 簡易高水準言語。xasmへコンパイルして実行(`-S` で生成コードを表示)
-  - サンプル: `hello.xh` `demo.xh` `primes.xh`
+  - 入出力はC風: `printf("x=%d %c %s\n", x, 65, "str");`(`%d` `%c` `%s`(文字列リテラル) `%%`)、
+    `scanf("%d", &x);`(`%d` `%c` と空白。読めた個数を返し、EOFなら `EOF`(-1)。Ctrl+DでEOF)
+  - サンプル: `hello.xh` `demo.xh` `primes.xh` `input.xh`
 - `wc` `head` `tail`: ファイル/標準入力(パイプ可)を処理
 - そのほかMikanOS由来: `tedit` `paint` `gview` `blocks` `cube` `grep` `sort` `more` `cp` など
 
