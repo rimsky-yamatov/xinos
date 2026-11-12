@@ -2,6 +2,7 @@
 
 #include <cstdio>
 #include <cstring>
+#include <strings.h>
 
 #include "fat.hpp"
 
@@ -122,7 +123,7 @@ bool TakeIndex(const char* name, char* orig, size_t orig_size) {
   for (char* line = buf; line < buf + len;) {
     char* nl = strchr(line, '\n');
     const size_t line_len = nl ? static_cast<size_t>(nl - line) : strlen(line);
-    if (!found && line_len > name_len && strncmp(line, name, name_len) == 0 &&
+    if (!found && line_len > name_len && strncasecmp(line, name, name_len) == 0 &&
         line[name_len] == '\t') {
       const size_t olen = line_len - name_len - 1;
       if (olen < orig_size) {

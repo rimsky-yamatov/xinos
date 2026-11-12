@@ -183,7 +183,8 @@ void ListAllEntries(FileDescriptor& fd, uint32_t dir_cluster, bool verbose) {
         }
         return;
       } else if (static_cast<uint8_t>(dir[i].name[0]) == 0xe5 ||
-                 dir[i].name[0] == '.') {
+                 dir[i].name[0] == '.' ||
+                 memcmp(dir[i].name, "RESTORE IDX", 11) == 0) {
         continue;
       } else if (dir[i].attr == fat::Attribute::kLongName ||
                  (static_cast<uint8_t>(dir[i].attr) & 0x08)) {
