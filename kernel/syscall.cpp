@@ -1,5 +1,8 @@
 #include "syscall.hpp"
 #include "path.hpp"
+#include "desktop.hpp"
+#include "persist.hpp"
+#include "fsops.hpp"
 
 #include <array>
 #include <cstdint>
@@ -400,6 +403,111 @@ SYSCALL(MapFile) {
   return { vaddr_begin, 0 };
 }
 
+SYSCALL(ReadDir) {
+  const char* path = reinterpret_cast<const char*>(arg1);
+  const int index = arg2;
+  auto* out = reinterpret_cast<fsops::DirInfo*>(arg3);
+  auto& task = task_manager->CurrentTask();
+  char abs_path[256];
+  if (!path::Resolve(task.Cwd(), path, abs_path, sizeof(abs_path))) {
+    return { 0, ENOENT };
+  }
+  __asm__("cli");
+  const bool ok = fsops::ReadDir(abs_path, index, out);
+  __asm__("sti");
+  return ok ? Result{ 1, 0 } : Result{ 0, ENOENT };
+}
+
+namespace {
+  int ErrnoOf(const Error& err) {
+    switch (err.Cause()) {
+    case Error::kSuccess: return 0;
+    case Error::kNotEmpty: return ENOTEMPTY;
+    case Error::kNoSuchEntry: return ENOENT;
+    case Error::kAlreadyExists: return EEXIST;
+    case Error::kIsDirectory: return EISDIR;
+    case Error::kNotDirectory: return ENOTDIR;
+    case Error::kInvalidFile: return EINVAL;
+    case Error::kNoEnoughMemory: return ENOSPC;
+    default: return EIO;
+    }
+  }
+}
+
+// op: 1=mkdir 2=remove 3=move 4=trash 5=empty-trash 6=restore(name) 7=remove-recursive
+SYSCALL(FsOp) {
+  const int op = arg1;
+  const char* p1 = reinterpret_cast<const char*>(arg2);
+  const char* p2 = reinterpret_cast<const char*>(arg3);
+  auto& task = task_manager->CurrentTask();
+  char a1[256] = "", a2[256] = "";
+  if (p1 && p1[0] && op != 6 && !path::Resolve(task.Cwd(), p1, a1, sizeof(a1))) {
+    return { 0, ENOENT };
+  }
+  if (p2 && p2[0] && !path::Resolve(task.Cwd(), p2, a2, sizeof(a2))) {
+    return { 0, ENOENT };
+  }
+  if ((op == 1 || op == 2 || op == 3 || op == 4 || op == 7) && strcmp(a1, "/") == 0) {
+    return { 0, EINVAL };
+  }
+
+  Error err = MAKE_ERROR(Error::kSuccess);
+  __asm__("cli");
+  switch (op) {
+  case 1: err = fat::CreateDirectory(a1).error; break;
+  case 2: err = fat::RemoveEntry(a1); break;
+  case 3: err = fsops::Move(a1, a2); break;
+  case 4: err = fsops::Trash(a1); break;
+  case 5: err = fsops::EmptyTrash(); break;
+  case 6: err = fsops::Restore(p1 ? p1 : ""); break;
+  case 7: err = fsops::RemoveRecursive(a1); break;
+  default: err = MAKE_ERROR(Error::kNotImplemented); break;
+  }
+  __asm__("sti");
+  persist::Sync();       // 変更を永続ディスクへ反映
+  desktop::RefreshTrash();
+  return { 0, ErrnoOf(err) };
+}
+
+// flags: bit0 = 端末ウィンドウを表示する
+SYSCALL(Launch) {
+  const char* command = reinterpret_cast<const char*>(arg1);
+  const bool show_terminal = arg2 & 1;
+  const char* cwd = reinterpret_cast<const char*>(arg3);
+  __asm__("cli");
+  LaunchTerminalCommand(command, show_terminal, cwd && cwd[0] ? cwd : nullptr);
+  __asm__("sti");
+  return { 0, 0 };
+}
+
+// 32bit ARGB の画像をウィンドウに描く(alpha=0 は透過、中間値は背景とブレンド)
+SYSCALL(WinBlit) {
+  return DoWinFunc(
+      [](Window& win, int x, int y, int w, int h, const uint32_t* px) {
+        for (int j = 0; j < h; ++j) {
+          for (int i = 0; i < w; ++i) {
+            const uint32_t c = px[j * w + i];
+            const unsigned a = c >> 24;
+            const Vector2D<int> p{x + i, y + j};
+            if (a == 0 || p.x < 0 || p.y < 0 ||
+                p.x >= win.Width() || p.y >= win.Height()) {
+              continue;
+            }
+            PixelColor col{static_cast<uint8_t>(c >> 16), static_cast<uint8_t>(c >> 8),
+                           static_cast<uint8_t>(c)};
+            if (a < 255) {
+              const auto& bg = win.At(p);
+              col.r = (col.r * a + bg.r * (255 - a)) / 255;
+              col.g = (col.g * a + bg.g * (255 - a)) / 255;
+              col.b = (col.b * a + bg.b * (255 - a)) / 255;
+            }
+            win.Writer()->Write(p, col);
+          }
+        }
+        return Result{ 0, 0 };
+      }, arg1, arg2, arg3, arg4, arg5, reinterpret_cast<const uint32_t*>(arg6));
+}
+
 SYSCALL(IsTerminal) {
   const int fd = arg1;
   __asm__("cli");
@@ -419,7 +527,7 @@ SYSCALL(IsTerminal) {
 
 using SyscallFuncType = syscall::Result (uint64_t, uint64_t, uint64_t,
                                          uint64_t, uint64_t, uint64_t);
-extern "C" std::array<SyscallFuncType*, 0x11> syscall_table{
+extern "C" std::array<SyscallFuncType*, 0x15> syscall_table{
   /* 0x00 */ syscall::LogString,
   /* 0x01 */ syscall::PutString,
   /* 0x02 */ syscall::Exit,
@@ -437,6 +545,10 @@ extern "C" std::array<SyscallFuncType*, 0x11> syscall_table{
   /* 0x0e */ syscall::DemandPages,
   /* 0x0f */ syscall::MapFile,
   /* 0x10 */ syscall::IsTerminal,
+  /* 0x11 */ syscall::ReadDir,
+  /* 0x12 */ syscall::FsOp,
+  /* 0x13 */ syscall::Launch,
+  /* 0x14 */ syscall::WinBlit,
 };
 
 void InitializeSyscall() {

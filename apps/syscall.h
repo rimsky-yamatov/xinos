@@ -45,6 +45,34 @@ struct SyscallResult SyscallDemandPages(size_t num_pages, int flags);
 struct SyscallResult SyscallMapFile(int fd, size_t* file_size, int flags);
 struct SyscallResult SyscallIsTerminal(int fd);
 
+/* ---- ファイルマネージャ等向け(XinOS 拡張) ---- */
+struct DirInfo {
+  char name[16];       /* "NAME.EXT" (大文字) */
+  unsigned char is_dir;
+  unsigned char pad[3];
+  unsigned int size;
+};
+/* path の index 番目の項目を取得。成功で value=1、終端で error=ENOENT */
+struct SyscallResult SyscallReadDir(const char* path, int index, struct DirInfo* out);
+
+#define FSOP_MKDIR 1
+#define FSOP_REMOVE 2
+#define FSOP_MOVE 3
+#define FSOP_TRASH 4
+#define FSOP_EMPTY_TRASH 5
+#define FSOP_RESTORE 6
+#define FSOP_REMOVE_ALL 7
+/* 失敗時は error に errno 相当の値が入る */
+struct SyscallResult SyscallFsOp(int op, const char* path1, const char* path2);
+
+#define LAUNCH_WITH_TERMINAL 1
+/* command を新しいタスクで実行する。cwd は NULL か空なら "/" */
+struct SyscallResult SyscallLaunch(const char* command, int flags, const char* cwd);
+
+/* 32bit ARGB(A=0 は透過)の w x h 画像をウィンドウへ描く */
+struct SyscallResult SyscallWinBlit(uint64_t layer_id_flags, int x, int y, int w, int h,
+                                    const unsigned int* argb);
+
 #ifdef __cplusplus
 } // extern "C"
 #endif

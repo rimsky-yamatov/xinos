@@ -27,3 +27,7 @@ define_syscall ReadFile,         0x8000000d
 define_syscall DemandPages,      0x8000000e
 define_syscall MapFile,          0x8000000f
 define_syscall IsTerminal,       0x80000010
+define_syscall ReadDir,          0x80000011
+define_syscall FsOp,             0x80000012
+define_syscall Launch,           0x80000013
+define_syscall WinBlit,          0x80000014

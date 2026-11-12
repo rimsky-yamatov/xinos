@@ -29,7 +29,11 @@ struct TerminalDescriptor {
   bool exit_after_command;
   bool show_window;
   std::array<std::shared_ptr<FileDescriptor>, 3> files;
+  std::string cwd;  // 空なら "/"
 };
+
+/** @brief コマンドを実行する端末タスクを起動する(デスクトップ・アプリから使う)。 */
+void LaunchTerminalCommand(const char* command, bool show_window, const char* cwd = nullptr);
 
 enum class EscSeqState {
   kInit, // エスケープシーケンスに出会ってない状態

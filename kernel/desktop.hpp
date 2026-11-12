@@ -21,4 +21,7 @@ void Initialize(unsigned int bg_layer_id, unsigned int mouse_layer_id);
  */
 bool OnMousePress(Vector2D<int> pos);
 
+/** @brief ゴミ箱の中身が変わったときに呼び、ゴミ箱アイコンを更新する。 */
+void RefreshTrash();
+
 }  // namespace desktop

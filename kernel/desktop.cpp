@@ -5,6 +5,7 @@
 #include <memory>
 
 #include "console.hpp"
+#include "terminal.hpp"
 #include "font.hpp"
 #include "graphics.hpp"
 #include "layer.hpp"
@@ -13,7 +14,6 @@
 
 extern TimerManager* timer_manager;
 extern Console* console;
-void LaunchTerminalCommand(const char* command, bool show_window);
 
 namespace {
 
@@ -240,5 +240,7 @@ bool OnMousePress(Vector2D<int> pos) {
   }
   return false;
 }
+
+void RefreshTrash() {}
 
 }  // namespace desktop

@@ -1,6 +1,8 @@
 #include "terminal.hpp"
 #include "persist.hpp"
 #include "path.hpp"
+#include "fsops.hpp"
+#include "desktop.hpp"
 
 #include <algorithm>
 #include <array>
@@ -316,6 +318,9 @@ Terminal::Terminal(Task& task, const TerminalDescriptor* term_desc)
     : task_{task} {
   if (term_desc) {
     show_window_ = term_desc->show_window;
+    if (!term_desc->cwd.empty()) {
+      task_.SetCwd(term_desc->cwd.c_str());
+    }
     for (int i = 0; i < files_.size(); ++i) {
       if (term_desc->files[i]) {
         files_[i] = term_desc->files[i];
@@ -522,7 +527,8 @@ void Terminal::ExecuteLineImpl() {
     pipe_fd = std::make_shared<PipeDescriptor>(subtask);
     auto term_desc = new TerminalDescriptor{
       subcommand, true, false,
-      { pipe_fd, files_[1], files_[2] }
+      { pipe_fd, files_[1], files_[2] },
+      task_.Cwd()
     };
     files_[1] = pipe_fd;
 
@@ -635,7 +641,7 @@ void Terminal::ExecuteLineImpl() {
     }
   } else if (strcmp(command, "noterm") == 0) {
     auto term_desc = new TerminalDescriptor{
-      first_arg, true, false, files_
+      first_arg, true, false, files_, task_.Cwd()
     };
     task_manager->NewTask()
       .InitContext(TaskTerminal, reinterpret_cast<int64_t>(term_desc))
@@ -657,7 +663,8 @@ void Terminal::ExecuteLineImpl() {
   } else if (strcmp(command, "help") == 0) {
     PrintToFD(*files_[1],
         "builtin: help ver uname uptime echo clear ls cat date memstat\n"
-        "         cd pwd mkdir rmdir rm touch mv sync disk\n"
+        "         cd pwd mkdir rmdir rm touch mv trash restore\n"
+        "         emptytrash sync disk\n"
         "         lspci lsusb reboot poweroff noterm\n"
         "apps   : xasm xhl wc head tail grep sort more cp tedit paint ...\n");
   } else if (strcmp(command, "date") == 0) {
@@ -777,6 +784,39 @@ void Terminal::ExecuteLineImpl() {
         exit_code = 1;
       }
     }
+  } else if (strcmp(command, "trash") == 0 || strcmp(command, "restore") == 0) {
+    char* argv[8];
+    const int argc = first_arg ? SplitArgs(first_arg, argv, 8) : 0;
+    if (argc == 0) {
+      PrintToFD(*files_[2], "usage: %s <%s>...\n", command,
+                strcmp(command, "trash") == 0 ? "path" : "name in /trash");
+      exit_code = 1;
+    }
+    for (int i = 0; i < argc; ++i) {
+      Error err = MAKE_ERROR(Error::kSuccess);
+      if (strcmp(command, "trash") == 0) {
+        char abs[256];
+        if (!path::Resolve(task_.Cwd(), argv[i], abs, sizeof(abs))) {
+          PrintToFD(*files_[2], "%s: path too long\n", argv[i]);
+          exit_code = 1;
+          continue;
+        }
+        err = fsops::Trash(abs);
+      } else {
+        err = fsops::Restore(argv[i]);
+      }
+      if (err) {
+        PrintToFD(*files_[2], "%s: %s: %s\n", command, argv[i], FsErrorText(err));
+        exit_code = 1;
+      }
+    }
+    desktop::RefreshTrash();
+  } else if (strcmp(command, "emptytrash") == 0) {
+    if (auto err = fsops::EmptyTrash()) {
+      PrintToFD(*files_[2], "emptytrash: %s\n", FsErrorText(err));
+      exit_code = 1;
+    }
+    desktop::RefreshTrash();
   } else if (strcmp(command, "sync") == 0) {
     if (!persist::IsMounted()) {
       PrintToFD(*files_[2], "no persistent disk\n");
@@ -1373,8 +1413,9 @@ void PipeDescriptor::FinishWrite() {
  *
  * show_window が false なら端末ウィンドウは出さず、コマンド終了でタスクも終了する．
  */
-void LaunchTerminalCommand(const char* command, bool show_window) {
-  auto desc = new TerminalDescriptor{command, !show_window, show_window, {}};
+void LaunchTerminalCommand(const char* command, bool show_window, const char* cwd) {
+  auto desc = new TerminalDescriptor{command, !show_window, show_window, {},
+                                     cwd ? cwd : ""};
   task_manager->NewTask()
     .InitContext(TaskTerminal, reinterpret_cast<int64_t>(desc))
     .Wakeup();
