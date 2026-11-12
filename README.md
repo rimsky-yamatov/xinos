@@ -15,7 +15,7 @@ MikanOS (https://github.com/uchan-nos/mikanos) を元にしています。ライ
 
 ## ビルド
 
-必要なもの: `clang` `lld` `nasm` `mtools` `xorriso` `python3` `build-essential` `uuid-dev` `acpica-tools`
+必要なもの: `clang` `lld` `nasm` `mtools` `xorriso` `fdisk`(sfdisk) `python3` `build-essential` `uuid-dev` `acpica-tools`
 (起動確認には `qemu-system-x86` と `ovmf`)
 
 1. MikanOS用のx86_64-elf環境(newlib / libc++ / freetype)を展開する
@@ -34,12 +34,36 @@ scripts/run.sh            # QEMU (UEFI) で起動(build/disk.img があれば自
 ```
 
 ## 永続ディスク
-`build/disk.img` を virtio-blk として接続すると、そのFAT32ボリュームがルートとして使われ、
-ファイルの変更は再起動後も残ります(接続しない場合はISO内のRAMボリュームで、変更は消えます)。
+ボリュームラベルが `XINOSDISK` のFAT32ボリュームが見つかると、それがルートとして使われ、
+ファイルの変更は再起動後も残ります(見つからない場合はISO内のRAMボリュームで、変更は消えます)。
+- 対応ストレージ: **NVMe** / **SATA(AHCI)** / virtio-blk(QEMU用)。ディスク全体、GPT、MBR のパーティションを探します
+- 論理セクタは 512 バイトと 4096 バイト(4Kn NVMe)に対応(SATA は論理512バイトのみ)
+- **安全のため、ラベルが `XINOSDISK` でないボリュームには一切書き込みません**(他OSのディスクは読み取りもしません)
 - コマンドの終了ごと、および `reboot` / `poweroff` 時に変更ブロックだけをディスクへ書き戻します
-- `sync`: 手動で書き戻す / `disk`: 永続ディスクの状態を表示
-- 起動後のファイル更新は、ホストから `mcopy -i build/disk.img` などでも確認できます
-- 実機やQEMU以外で使う場合は legacy virtio-blk(I/Oポート)対応のデバイスが必要です
+- `sync`: 手動で書き戻す / `disk`: マウント元(デバイス名・パーティション位置)を表示
+- ボリュームは起動時に全体をRAMへ読み込むため、最大 256MiB です
+
+### QEMU で試す
+```sh
+scripts/mkdisk.sh 64                  # build/disk.img を作成(既存なら中身を消さずにシステムファイルだけ更新)
+XINOS_DISK_BUS=nvme scripts/run.sh    # virtio(既定) / nvme / ahci を選べる
+```
+
+## 実機で使う (x64 UEFI)
+`scripts/mkinstall.sh [データ領域MiB]` で、GPT付きのディスクイメージ `build/xinos-install.img` を作ります
+(EFIシステムパーティション80MiB + ラベル `XINOSDISK` の永続領域。既定192MiB、最大256MiB)。
+```sh
+scripts/mkinstall.sh 192
+scripts/run-disk.sh nvme              # QEMU で、このイメージをディスクとして直接起動して確認
+# 実機へ: 書き込み先を lsblk などで必ず確認すること(そのディスクの内容は全て消えます)
+sudo dd if=build/xinos-install.img of=/dev/<対象ディスク> bs=4M conv=fsync status=progress
+```
+- 書き込み後、UEFI(BIOS)の設定で **Secure Boot を無効** にして、そのディスクから起動してください(ローダは署名されていません)
+- イメージはディスクより小さいため、GPTのバックアップヘッダはイメージ末尾にあります。UEFIが警告する場合は `gdisk` の `w` などで修復できます
+- ISO(`xinos.iso`)をUSBメモリに `dd` して起動すると、永続化なしのRAMモードで試せます。内蔵のNVMe/SATAに `XINOSDISK` があれば、そちらが使われます
+- **QEMUでのみ動作確認しています。実機での動作は未確認です。**
+- 制限: ストレージは NVMe と SATA(AHCI)のみ(USBメモリ・SDカード・RAIDモードのSATAは未対応)。
+  キーボード/マウスは **xHCI(USB3)のUSB機器** のみです。ノートPC内蔵のPS/2キーボードは動かないため、USBキーボードを使ってください
 
 ## デスクトップ
 - 左下の「XinOS」ボタンでスタートメニュー(Terminal / Editor / Paint / Viewer / Blocks / Cube / Eye / Stars / Reboot / Shut down)
