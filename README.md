@@ -85,5 +85,9 @@ sudo dd if=build/xinos-install.img of=/dev/<対象ディスク> bs=4M conv=fsync
 - アプリからの `fopen` も、実行したターミナルのカレントディレクトリ基準で解決されます
 - ファイル名は 8.3 形式(例: `report.txt`、ディレクトリ名は8文字まで)。`mv` は既存ディレクトリを指定するとその中へ移動します
 
+## デモ動画
+`scripts/record-demo.py [出力.mp4] [メニュー番号]` で、電源オン → UEFI起動 → デスクトップ → スタートメニュー → アプリ起動までを
+QEMU上で自動操作して mp4 に録画します(要 `ffmpeg`、事前に `scripts/mkiso.sh`)。メニュー番号は 0=Terminal 1=Editor 2=Paint 3=Viewer 4=Blocks 5=Cube(既定) 6=Eye 7=Stars。
+
 ## 今後の予定
 - テキストエディタの強化、ウィンドウ付きファイルマネージャ
