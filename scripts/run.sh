@@ -8,8 +8,16 @@ VARS=$ROOT/build/OVMF_VARS.fd
 # 永続ディスク(build/disk.img)があれば virtio-blk として接続する
 DISK=${XINOS_DISK:-$ROOT/build/disk.img}
 DISK_OPTS=""
+# XINOS_DISK_BUS: virtio(既定) / nvme / ahci(SATA)
 if [ -f "$DISK" ]; then
-  DISK_OPTS="-drive file=$DISK,if=none,id=xinosdisk,format=raw -device virtio-blk-pci,drive=xinosdisk,disable-modern=on"
+  case "${XINOS_DISK_BUS:-virtio}" in
+    nvme)
+      DISK_OPTS="-drive file=$DISK,if=none,id=xinosdisk,format=raw -device nvme,drive=xinosdisk,serial=xinos0" ;;
+    ahci)
+      DISK_OPTS="-drive file=$DISK,if=none,id=xinosdisk,format=raw -device ich9-ahci,id=ahci -device ide-hd,drive=xinosdisk,bus=ahci.0" ;;
+    *)
+      DISK_OPTS="-drive file=$DISK,if=none,id=xinosdisk,format=raw -device virtio-blk-pci,drive=xinosdisk,disable-modern=on" ;;
+  esac
 fi
 exec qemu-system-x86_64 -m 1G -cpu qemu64 \
   -drive if=pflash,format=raw,readonly=on,file="$CODE" \
