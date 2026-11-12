@@ -1,5 +1,6 @@
 #include "terminal.hpp"
 #include "persist.hpp"
+#include "path.hpp"
 
 #include <algorithm>
 #include <array>
@@ -179,10 +180,12 @@ void ListAllEntries(FileDescriptor& fd, uint32_t dir_cluster, bool verbose) {
           PrintToFD(fd, "\n");
         }
         return;
-      } else if (static_cast<uint8_t>(dir[i].name[0]) == 0xe5) {
+      } else if (static_cast<uint8_t>(dir[i].name[0]) == 0xe5 ||
+                 dir[i].name[0] == '.') {
         continue;
-      } else if (dir[i].attr == fat::Attribute::kLongName) {
-        continue;
+      } else if (dir[i].attr == fat::Attribute::kLongName ||
+                 (static_cast<uint8_t>(dir[i].attr) & 0x08)) {
+        continue;  // 長いファイル名エントリとボリュームラベルは表示しない
       }
 
       if (verbose) {
@@ -250,27 +253,59 @@ WithError<AppLoadInfo> LoadApp(fat::DirectoryEntry& file_entry, Task& task) {
   return { app_load, err };
 }
 
-fat::DirectoryEntry* FindCommand(const char* command,
-                                 unsigned long dir_cluster = 0) {
-  auto file_entry = fat::FindFile(command, dir_cluster);
-  if (file_entry.first != nullptr &&
-      (file_entry.first->attr == fat::Attribute::kDirectory ||
-       file_entry.second)) {
-    return nullptr;
-  } else if (file_entry.first) {
-    return file_entry.first;
+const char* FsErrorText(const Error& err) {
+  switch (err.Cause()) {
+  case Error::kNotEmpty: return "directory not empty";
+  case Error::kNoSuchEntry: return "no such file or directory";
+  case Error::kAlreadyExists: return "already exists";
+  case Error::kIsDirectory: return "is a directory (use rmdir)";
+  case Error::kNotDirectory: return "not a directory";
+  case Error::kInvalidFile: return "invalid name (use 8.3 names)";
+  case Error::kNoEnoughMemory: return "no space left";
+  default: return err.Name();
   }
+}
 
-  if (dir_cluster != 0 || strchr(command, '/') != nullptr) {
+fat::DirectoryEntry* FindCommand(const char* command, const char* cwd) {
+  // 1) カレントディレクトリ基準のパスとして探す
+  char abs_path[256];
+  if (path::Resolve(cwd, command, abs_path, sizeof(abs_path))) {
+    auto [ entry, post_slash ] = fat::FindFile(abs_path);
+    if (entry != nullptr) {
+      if (entry->attr == fat::Attribute::kDirectory || post_slash) {
+        return nullptr;
+      }
+      return entry;
+    }
+  }
+  if (strchr(command, '/') != nullptr) {
     return nullptr;
   }
+  // 2) /apps/<command>
+  char apps_path[256];
+  if (strlen(command) + 7 > sizeof(apps_path)) {
+    return nullptr;
+  }
+  strcpy(apps_path, "/apps/");
+  strcat(apps_path, command);
+  auto [ entry, post_slash ] = fat::FindFile(apps_path);
+  if (entry == nullptr || entry->attr == fat::Attribute::kDirectory || post_slash) {
+    return nullptr;
+  }
+  return entry;
+}
 
-  auto apps_entry = fat::FindFile("apps");
-  if (apps_entry.first == nullptr ||
-      apps_entry.first->attr != fat::Attribute::kDirectory) {
-    return nullptr;
+// 空白区切りで最大 max 個の引数に分割する(s を書き換える)
+int SplitArgs(char* s, char** argv, int max) {
+  int n = 0;
+  while (*s && n < max) {
+    while (isspace(static_cast<unsigned char>(*s))) ++s;
+    if (!*s) break;
+    argv[n++] = s;
+    while (*s && !isspace(static_cast<unsigned char>(*s))) ++s;
+    if (*s) *s++ = '\0';
   }
-  return FindCommand(command, apps_entry.first->FirstCluster());
+  return n;
 }
 
 } // namespace
@@ -308,7 +343,7 @@ Terminal::Terminal(Task& task, const TerminalDescriptor* term_desc)
       .SetDraggable(true)
       .ID();
 
-    Print(">");
+    PrintPrompt();
   }
   cmd_history_.resize(8);
 }
@@ -354,11 +389,11 @@ Rectangle<int> Terminal::InputKey(
       Scroll1();
     }
     ExecuteLine();
-    Print(">");
+    PrintPrompt();
     draw_area.pos = ToplevelWindow::kTopLeftMargin;
     draw_area.size = window_->InnerSize();
   } else if (ascii == '\b') {
-    if (cursor_.x > 1) {
+    if (cursor_.x > prompt_len_) {
       --cursor_.x;
       if (show_window_) {
         FillRectangle(*window_->Writer(), CalcCursorPos(), {8, 16}, {0, 0, 0});
@@ -399,6 +434,21 @@ void Terminal::Scroll1() {
                 {4, 4 + 16*cursor_.y}, {8*kColumns, 16}, {0, 0, 0});
 }
 
+void Terminal::PrintPrompt() {
+  const char* cwd = task_.Cwd();
+  char buf[48];
+  const size_t len = strlen(cwd);
+  if (strcmp(cwd, "/") == 0) {
+    strcpy(buf, ">");
+  } else if (len > 24) {
+    snprintf(buf, sizeof(buf), "...%s>", cwd + len - 20);
+  } else {
+    snprintf(buf, sizeof(buf), "%s>", cwd);
+  }
+  prompt_len_ = static_cast<int>(strlen(buf));
+  Print(buf);
+}
+
 void Terminal::ExecuteLine() {
   ExecuteLineImpl();
   persist::Sync();  // コマンドで変更されたファイルを永続ディスクへ書き戻す
@@ -436,9 +486,14 @@ void Terminal::ExecuteLineImpl() {
       ++redir_dest;
     }
 
-    auto [ file, post_slash ] = fat::FindFile(redir_dest);
+    char redir_abs[256];
+    if (!path::Resolve(task_.Cwd(), redir_dest, redir_abs, sizeof(redir_abs))) {
+      PrintToFD(*files_[2], "path too long\n");
+      return;
+    }
+    auto [ file, post_slash ] = fat::FindFile(redir_abs);
     if (file == nullptr) {
-      auto [ new_file, err ] = fat::CreateFile(redir_dest);
+      auto [ new_file, err ] = fat::CreateFile(redir_abs);
       if (err) {
         PrintToFD(*files_[2],
                   "failed to create a redirect file: %s\n", err.Name());
@@ -511,12 +566,17 @@ void Terminal::ExecuteLineImpl() {
       }
       while (isspace(*file_name)) file_name++;
     }
-    if (!file_name || file_name[0] == '\0') {
+    char abs_ls[256];
+    const char* ls_target = (file_name && file_name[0]) ? file_name : ".";
+    if (!path::Resolve(task_.Cwd(), ls_target, abs_ls, sizeof(abs_ls))) {
+      PrintToFD(*files_[2], "path too long\n");
+      exit_code = 1;
+    } else if (strcmp(abs_ls, "/") == 0) {
       ListAllEntries(*files_[1], fat::boot_volume_image->root_cluster, verbose);
     } else {
-      auto [ dir, post_slash ] = fat::FindFile(file_name);
+      auto [ dir, post_slash ] = fat::FindFile(abs_ls);
       if (dir == nullptr) {
-        PrintToFD(*files_[2], "No such file or directory: %s\n", file_name);
+        PrintToFD(*files_[2], "No such file or directory: %s\n", ls_target);
         exit_code = 1;
       } else if (dir->attr == fat::Attribute::kDirectory) {
         ListAllEntries(*files_[1], dir->FirstCluster(), verbose);
@@ -544,7 +604,11 @@ void Terminal::ExecuteLineImpl() {
     if (!first_arg || first_arg[0] == '\0') {
       fd = files_[0];
     } else {
-      auto [ file_entry, post_slash ] = fat::FindFile(first_arg);
+      char abs_cat[256];
+      if (!path::Resolve(task_.Cwd(), first_arg, abs_cat, sizeof(abs_cat))) {
+        abs_cat[0] = '\0';
+      }
+      auto [ file_entry, post_slash ] = fat::FindFile(abs_cat);
       if (!file_entry) {
         PrintToFD(*files_[2], "no such file: %s\n", first_arg);
         exit_code = 1;
@@ -593,7 +657,8 @@ void Terminal::ExecuteLineImpl() {
   } else if (strcmp(command, "help") == 0) {
     PrintToFD(*files_[1],
         "builtin: help ver uname uptime echo clear ls cat date memstat\n"
-        "         sync disk lspci lsusb reboot poweroff noterm\n"
+        "         cd pwd mkdir rmdir rm touch mv sync disk\n"
+        "         lspci lsusb reboot poweroff noterm\n"
         "apps   : xasm xhl wc head tail grep sort more cp tedit paint ...\n");
   } else if (strcmp(command, "date") == 0) {
     EFI_TIME t;
@@ -608,6 +673,108 @@ void Terminal::ExecuteLineImpl() {
         PrintToFD(*files_[1], "+%02d%02d\n", t.TimeZone / 60, t.TimeZone % 60);
       } else {
         PrintToFD(*files_[1], "-%02d%02d\n", -t.TimeZone / 60, -t.TimeZone % 60);
+      }
+    }
+  } else if (strcmp(command, "pwd") == 0) {
+    PrintToFD(*files_[1], "%s\n", task_.Cwd());
+  } else if (strcmp(command, "cd") == 0) {
+    char abs[256];
+    const char* target = (first_arg && first_arg[0]) ? first_arg : "/";
+    if (!path::Resolve(task_.Cwd(), target, abs, sizeof(abs))) {
+      PrintToFD(*files_[2], "path too long\n");
+      exit_code = 1;
+    } else if (strcmp(abs, "/") == 0) {
+      task_.SetCwd("/");
+    } else {
+      auto [ dir, post_slash ] = fat::FindFile(abs);
+      if (dir == nullptr) {
+        PrintToFD(*files_[2], "no such directory: %s\n", target);
+        exit_code = 1;
+      } else if (dir->attr != fat::Attribute::kDirectory) {
+        PrintToFD(*files_[2], "not a directory: %s\n", target);
+        exit_code = 1;
+      } else {
+        task_.SetCwd(abs);
+      }
+    }
+  } else if (strcmp(command, "mkdir") == 0 || strcmp(command, "rmdir") == 0 ||
+             strcmp(command, "rm") == 0 || strcmp(command, "touch") == 0) {
+    char* argv[8];
+    const int argc = first_arg ? SplitArgs(first_arg, argv, 8) : 0;
+    if (argc == 0) {
+      PrintToFD(*files_[2], "usage: %s <path>...\n", command);
+      exit_code = 1;
+    }
+    for (int i = 0; i < argc; ++i) {
+      char abs[256];
+      if (!path::Resolve(task_.Cwd(), argv[i], abs, sizeof(abs))) {
+        PrintToFD(*files_[2], "%s: path too long\n", argv[i]);
+        exit_code = 1;
+        continue;
+      }
+      if (strcmp(abs, "/") == 0) {
+        PrintToFD(*files_[2], "%s: cannot operate on the root directory\n", command);
+        exit_code = 1;
+        continue;
+      }
+      Error err = MAKE_ERROR(Error::kSuccess);
+      if (strcmp(command, "mkdir") == 0) {
+        err = fat::CreateDirectory(abs).error;
+      } else if (strcmp(command, "touch") == 0) {
+        if (fat::FindFile(abs).first == nullptr) {
+          err = fat::CreateFile(abs).error;
+        }
+      } else {
+        auto [ entry, post_slash ] = fat::FindFile(abs);
+        const bool want_dir = strcmp(command, "rmdir") == 0;
+        if (entry != nullptr && want_dir && entry->attr != fat::Attribute::kDirectory) {
+          err = MAKE_ERROR(Error::kNotDirectory);
+        } else if (entry != nullptr && !want_dir && entry->attr == fat::Attribute::kDirectory) {
+          err = MAKE_ERROR(Error::kIsDirectory);
+        } else {
+          err = fat::RemoveEntry(abs);
+        }
+      }
+      if (err) {
+        PrintToFD(*files_[2], "%s: %s: %s\n", command, argv[i], FsErrorText(err));
+        exit_code = 1;
+      }
+    }
+  } else if (strcmp(command, "mv") == 0) {
+    char* argv[3];
+    const int argc = first_arg ? SplitArgs(first_arg, argv, 3) : 0;
+    char src[256], dst[256];
+    if (argc != 2) {
+      PrintToFD(*files_[2], "usage: mv <src> <dst>\n");
+      exit_code = 1;
+    } else if (!path::Resolve(task_.Cwd(), argv[0], src, sizeof(src)) ||
+               !path::Resolve(task_.Cwd(), argv[1], dst, sizeof(dst))) {
+      PrintToFD(*files_[2], "path too long\n");
+      exit_code = 1;
+    } else if (strcmp(src, "/") == 0) {
+      PrintToFD(*files_[2], "cannot move the root directory\n");
+      exit_code = 1;
+    } else {
+      // dst が既存のディレクトリなら、その中へ同じ名前で移動する
+      auto [ dst_entry, dst_slash ] = fat::FindFile(dst);
+      const bool dst_is_dir = strcmp(dst, "/") == 0 ||
+        (dst_entry != nullptr && dst_entry->attr == fat::Attribute::kDirectory);
+      char final_dst[300];
+      if (dst_is_dir) {
+        const char* base = strrchr(src, '/') + 1;
+        snprintf(final_dst, sizeof(final_dst), "%s%s%s", dst,
+                 strcmp(dst, "/") == 0 ? "" : "/", base);
+      } else {
+        strcpy(final_dst, dst);
+      }
+      const size_t src_len = strlen(src);
+      if (strncmp(final_dst, src, src_len) == 0 &&
+          (final_dst[src_len] == '/' || final_dst[src_len] == '\0')) {
+        PrintToFD(*files_[2], "cannot move a directory into itself\n");
+        exit_code = 1;
+      } else if (auto err = fat::MoveEntry(src, final_dst)) {
+        PrintToFD(*files_[2], "mv: %s\n", FsErrorText(err));
+        exit_code = 1;
       }
     }
   } else if (strcmp(command, "sync") == 0) {
@@ -753,7 +920,7 @@ void Terminal::ExecuteLineImpl() {
       PrintToFD(*files_[1], "exit_code=%d\n", code);
     }();
   } else if (command[0] != 0) {
-    auto file_entry = FindCommand(command);
+    auto file_entry = FindCommand(command, task_.Cwd());
     if (!file_entry) {
       PrintToFD(*files_[2], "no such command: %s\n", command);
       exit_code = 1;
@@ -984,7 +1151,7 @@ Rectangle<int> Terminal::HistoryUpDown(int direction) {
     ++cmd_history_index_;
   }
 
-  cursor_.x = 1;
+  cursor_.x = prompt_len_;
   const auto first_pos = CalcCursorPos();
 
   Rectangle<int> draw_area{first_pos, {8*(kColumns - 1), 16}};
@@ -999,7 +1166,7 @@ Rectangle<int> Terminal::HistoryUpDown(int direction) {
   linebuf_index_ = strlen(history);
 
   WriteString(*window_->Writer(), first_pos, history, {255, 255, 255});
-  cursor_.x = linebuf_index_ + 1;
+  cursor_.x = linebuf_index_ + prompt_len_;
   return draw_area;
 }
 

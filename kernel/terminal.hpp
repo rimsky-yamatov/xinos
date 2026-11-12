@@ -60,6 +60,7 @@ class Terminal {
   Task& task_;
 
   Vector2D<int> cursor_{0, 0};
+  int prompt_len_{1};
   bool cursor_visible_{false};
   void DrawCursor(bool visible);
   Vector2D<int> CalcCursorPos() const;
@@ -70,6 +71,7 @@ class Terminal {
 
   void ExecuteLine();
   void ExecuteLineImpl();
+  void PrintPrompt();
   WithError<int> ExecuteFile(fat::DirectoryEntry& file_entry,
                              char* command, char* first_arg);
   void Print(char32_t c);
