@@ -167,6 +167,9 @@ long Sync() {
     written += run;
     off = end;
   }
+  if (written > 0) {
+    mounted_dev->Flush();
+  }
   __atomic_clear(&syncing, __ATOMIC_RELEASE);
   return written;
 }

@@ -27,10 +27,16 @@ class BlockDevice {
 
   /** @brief 512 バイト単位の lba へ sectors 個を書く */
   virtual bool Write(uint64_t lba, const void* buf, size_t sectors) = 0;
+
+  /** @brief デバイス内のキャッシュを書き出す(必要なデバイスだけ実装する) */
+  virtual void Flush() {}
 };
 
 /** @brief 見つかったブロックデバイスの一覧 */
 const std::vector<BlockDevice*>& BlockDevices();
+
+/** @brief 起動後に見つかったデバイス(USBストレージなど)を一覧に追加する */
+void RegisterBlockDevice(BlockDevice* dev);
 
 /** @brief PCI スキャン後に1度だけ呼ぶ。virtio-blk / NVMe / AHCI を探して登録する。 */
 void InitializeBlockDevices();

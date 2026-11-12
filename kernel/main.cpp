@@ -33,6 +33,7 @@
 #include "timer.hpp"
 #include "acpi.hpp"
 #include "persist.hpp"
+#include "usb/classdriver/msc.hpp"
 #include "keyboard.hpp"
 #include "task.hpp"
 #include "terminal.hpp"
@@ -230,6 +231,21 @@ extern "C" void KernelMainNewStack(
   usb::xhci::Initialize();
   InitializeKeyboard();
   InitializeMouse();
+
+  // NVMe/SATA/virtio に永続ディスクが無ければ、USBストレージの認識を少し待つ
+  if (!persist::IsMounted()) {
+    const unsigned long deadline = timer_manager->CurrentTick() + kTimerFreq * 5 / 2;
+    while (timer_manager->CurrentTick() < deadline) {
+      usb::xhci::ProcessEvents();
+      if (usb::msc::ProbePending() > 0) {
+        break;
+      }
+    }
+    if (persist::Mount()) {
+      fat::Initialize(persist::Volume());
+      printk("persistent disk: %lu MiB mounted\n", persist::VolumeBytes() >> 20);
+    }
+  }
 
   app_loads = new std::map<fat::DirectoryEntry*, AppLoadInfo>;
   task_manager->NewTask()

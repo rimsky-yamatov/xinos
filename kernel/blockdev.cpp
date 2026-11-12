@@ -29,6 +29,11 @@ class VirtioDevice : public BlockDevice {
 
 const std::vector<BlockDevice*>& BlockDevices() { return devices; }
 
+void RegisterBlockDevice(BlockDevice* dev) {
+  devices.push_back(dev);
+  Log(kInfo, "block device %s: %lu MiB\n", dev->Name(), dev->SectorCount() >> 11);
+}
+
 void* AllocDmaPages(size_t bytes) {
   const size_t frames = (bytes + kBytesPerFrame - 1) / kBytesPerFrame;
   auto [ frame, err ] = memory_manager->Allocate(frames);

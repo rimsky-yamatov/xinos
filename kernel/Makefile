@@ -6,7 +6,7 @@ OBJS = blockdev.o nvme.o ahci.o path.o virtio_blk.o persist.o desktop.o main.o g
        usb/memory.o usb/device.o usb/xhci/ring.o usb/xhci/trb.o usb/xhci/xhci.o \
        usb/xhci/port.o usb/xhci/device.o usb/xhci/devmgr.o usb/xhci/registers.o \
        usb/classdriver/base.o usb/classdriver/hid.o usb/classdriver/keyboard.o \
-       usb/classdriver/mouse.o usb/classdriver/cdc.o
+       usb/classdriver/mouse.o usb/classdriver/cdc.o usb/classdriver/msc.o
 DEPENDS = $(join $(dir $(OBJS)),$(addprefix .,$(notdir $(OBJS:.o=.d))))
 
 CPPFLAGS += -I.
