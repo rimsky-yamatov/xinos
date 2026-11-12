@@ -790,8 +790,8 @@ void Terminal::ExecuteLineImpl() {
     }
   } else if (strcmp(command, "disk") == 0) {
     if (persist::IsMounted()) {
-      PrintToFD(*files_[1], "persistent disk: %lu MiB (virtio-blk)\n",
-                persist::VolumeBytes() >> 20);
+      PrintToFD(*files_[1], "persistent disk: %lu MiB on %s\n",
+                persist::VolumeBytes() >> 20, persist::Description());
     } else {
       PrintToFD(*files_[1], "no persistent disk (RAM volume, changes are lost)\n");
     }

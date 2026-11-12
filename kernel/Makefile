@@ -1,5 +1,5 @@
 TARGET = kernel.elf
-OBJS = path.o virtio_blk.o persist.o desktop.o main.o graphics.o mouse.o font.o hankaku.o newlib_support.o console.o \
+OBJS = blockdev.o nvme.o ahci.o path.o virtio_blk.o persist.o desktop.o main.o graphics.o mouse.o font.o hankaku.o newlib_support.o console.o \
        pci.o asmfunc.o libcxx_support.o logger.o interrupt.o segment.o paging.o memory_manager.o \
        window.o layer.o timer.o frame_buffer.o acpi.o keyboard.o task.o terminal.o \
        fat.o syscall.o file.o \
