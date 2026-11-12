@@ -628,12 +628,22 @@ namespace usb::xhci {
     }
   }
 
+  namespace {
+    // イベントリングを同時に処理しない。メインタスクと、USBストレージの完了待ちをする
+    // タスクのどちらからも ProcessEvents を呼べるようにするための簡易ロック。
+    volatile bool processing_events = false;
+  }
+
   void ProcessEvents() {
+    if (__atomic_test_and_set(&processing_events, __ATOMIC_ACQUIRE)) {
+      return;
+    }
     while (controller->PrimaryEventRing()->HasFront()) {
       if (auto err = ProcessEvent(*controller)) {
         Log(kError, "Error while ProcessEvent: %s at %s:%d\n",
             err.Name(), err.File(), err.Line());
       }
     }
+    __atomic_clear(&processing_events, __ATOMIC_RELEASE);
   }
 }

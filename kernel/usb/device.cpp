@@ -1,4 +1,5 @@
 #include "usb/device.hpp"
+#include "usb/classdriver/msc.hpp"
 
 #include "usb/setupdata.hpp"
 #include "usb/classdriver/base.hpp"
@@ -97,6 +98,11 @@ namespace {
         }
         return mouse_driver;
       }
+    }
+    if (if_desc.interface_class == 8 &&
+        if_desc.interface_sub_class == 6 &&
+        if_desc.interface_protocol == 0x50) {  // Mass Storage / SCSI / Bulk-Only
+      return new usb::msc::MSCDriver{dev, if_desc.interface_number};
     }
     return nullptr;
   }
