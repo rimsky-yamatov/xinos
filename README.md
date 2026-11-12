@@ -46,15 +46,20 @@ scripts/run.sh            # QEMU (UEFI) で起動(build/disk.img があれば自
 - デスクトップ左のアイコンをダブルクリックで起動
 
 ## 標準プログラム
-- シェル組み込み: `help` `ver` `uname` `uptime` `echo` `clear` `ls` `cat` `date` `memstat` `sync` `disk` ほか
+- シェル組み込み: `help` `ver` `uname` `uptime` `echo` `clear` `ls` `cat` `date` `memstat` `cd` `pwd` `mkdir` `rmdir` `rm` `touch` `mv` `sync` `disk` ほか
 - `xasm <file.xa>`: 簡易アセンブラ+VM(命令は `apps/xasm/xvm.hpp` 参照、サンプル `hello.xa`)
 - `xhl [-S] <file.xh>`: 簡易高水準言語。xasmへコンパイルして実行(`-S` で生成コードを表示)
   - 入出力はC風: `printf("x=%d %c %s\n", x, 65, "str");`(`%d` `%c` `%s`(文字列リテラル) `%%`)、
     `scanf("%d", &x);`(`%d` `%c` と空白。読めた個数を返し、EOFなら `EOF`(-1)。Ctrl+DでEOF)
-  - サンプル: `hello.xh` `demo.xh` `primes.xh` `input.xh`
+  - サンプルは `/samples` にあります: `hello.xh` `demo.xh` `primes.xh` `input.xh`(`hello.xa` は xasm 用)
 - `wc` `head` `tail`: ファイル/標準入力(パイプ可)を処理
 - そのほかMikanOS由来: `tedit` `paint` `gview` `blocks` `cube` `grep` `sort` `more` `cp` など
 
+## ディレクトリ
+- ルート直下: `/apps`(アプリ) `/home`(ユーザー用) `/samples`(サンプル) とリソースファイル
+- プロンプトにカレントディレクトリを表示(`/home>` など)。相対パス・`.`・`..` が使えます
+- アプリからの `fopen` も、実行したターミナルのカレントディレクトリ基準で解決されます
+- ファイル名は 8.3 形式(例: `report.txt`、ディレクトリ名は8文字まで)。`mv` は既存ディレクトリを指定するとその中へ移動します
+
 ## 今後の予定
-- ディレクトリ作成(`mkdir` / `cd`)
 - テキストエディタの強化、ウィンドウ付きファイルマネージャ
