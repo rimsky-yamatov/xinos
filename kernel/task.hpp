@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include <cstring>
+
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -55,6 +57,9 @@ class Task {
   void SetDPagingBegin(uint64_t v);
   uint64_t DPagingEnd() const;
   void SetDPagingEnd(uint64_t v);
+  /** @brief カレントディレクトリ(絶対パス) */
+  const char* Cwd() const { return cwd_; }
+  void SetCwd(const char* path) { strncpy(cwd_, path, sizeof(cwd_) - 1); cwd_[sizeof(cwd_) - 1] = '\0'; }
   uint64_t FileMapEnd() const;
   void SetFileMapEnd(uint64_t v);
   std::vector<FileMapping>& FileMaps();
@@ -73,6 +78,7 @@ class Task {
   std::vector<std::shared_ptr<::FileDescriptor>> files_{};
   uint64_t dpaging_begin_{0}, dpaging_end_{0};
   uint64_t file_map_end_{0};
+  char cwd_[128]{'/', '\0'};
   std::vector<FileMapping> file_maps_{};
 
   Task& SetLevel(int level) { level_ = level; return *this; }

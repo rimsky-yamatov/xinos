@@ -1,4 +1,5 @@
 #include "syscall.hpp"
+#include "path.hpp"
 
 #include <array>
 #include <cstdint>
@@ -330,12 +331,16 @@ SYSCALL(OpenFile) {
     return { 0, 0 };
   }
 
-  auto [ file, post_slash ] = fat::FindFile(path);
+  char abs_path[256];
+  if (!path::Resolve(task.Cwd(), path, abs_path, sizeof(abs_path))) {
+    return { 0, ENOENT };
+  }
+  auto [ file, post_slash ] = fat::FindFile(abs_path);
   if (file == nullptr) {
     if ((flags & O_CREAT) == 0) {
       return { 0, ENOENT };
     }
-    auto [ new_file, err ] = CreateFile(path);
+    auto [ new_file, err ] = CreateFile(abs_path);
     if (err) {
       return { 0, err };
     }
