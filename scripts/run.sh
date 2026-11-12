@@ -8,11 +8,13 @@ VARS=$ROOT/build/OVMF_VARS.fd
 # 永続ディスク(build/disk.img)があれば virtio-blk として接続する
 DISK=${XINOS_DISK:-$ROOT/build/disk.img}
 DISK_OPTS=""
-# XINOS_DISK_BUS: virtio(既定) / nvme / ahci(SATA)
+# XINOS_DISK_BUS: virtio(既定) / nvme / ahci(SATA) / usb(USBメモリ)
 if [ -f "$DISK" ]; then
   case "${XINOS_DISK_BUS:-virtio}" in
     nvme)
       DISK_OPTS="-drive file=$DISK,if=none,id=xinosdisk,format=raw -device nvme,drive=xinosdisk,serial=xinos0" ;;
+    usb)
+      DISK_OPTS="-drive file=$DISK,if=none,id=xinosdisk,format=raw -device usb-storage,drive=xinosdisk,bus=xhci.0" ;;
     ahci)
       DISK_OPTS="-drive file=$DISK,if=none,id=xinosdisk,format=raw -device ich9-ahci,id=ahci -device ide-hd,drive=xinosdisk,bus=ahci.0" ;;
     *)
