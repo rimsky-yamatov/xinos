@@ -270,6 +270,7 @@ WithError<DirectoryEntry*> CreateFile(const char* path) {
   if (dir == nullptr) {
     return { nullptr, MAKE_ERROR(Error::kNoEnoughMemory) };
   }
+  memset(dir, 0, sizeof(*dir));  // 削除済みエントリの残骸を消す
   fat::SetFileName(*dir, filename);
   dir->file_size = 0;
   return { dir, MAKE_ERROR(Error::kSuccess) };
@@ -375,6 +376,172 @@ size_t FileDescriptor::Load(void* buf, size_t len, size_t offset) {
   fd.rd_cluster_ = cluster;
   fd.rd_cluster_off_ = offset;
   return fd.Read(buf, len);
+}
+
+
+namespace {
+
+void SetFirstCluster(DirectoryEntry& e, unsigned long c) {
+  e.first_cluster_low = c & 0xffff;
+  e.first_cluster_high = (c >> 16) & 0xffff;
+}
+
+// path の親ディレクトリの開始クラスタと、末尾の名前を求める。
+Error ResolveParent(const char* path, unsigned long* parent, const char** name) {
+  *parent = boot_volume_image->root_cluster;
+  *name = path;
+  if (const char* slash = strrchr(path, '/')) {
+    *name = &slash[1];
+    char parent_name[256];
+    const size_t len = slash - path;
+    if (len >= sizeof(parent_name)) {
+      return MAKE_ERROR(Error::kInvalidFile);
+    }
+    memcpy(parent_name, path, len);
+    parent_name[len] = '\0';
+    if (parent_name[0] != '\0') {
+      auto [ dir, post_slash ] = FindFile(parent_name);
+      if (dir == nullptr) {
+        return MAKE_ERROR(Error::kNoSuchEntry);
+      }
+      if (dir->attr != Attribute::kDirectory) {
+        return MAKE_ERROR(Error::kNotDirectory);
+      }
+      *parent = dir->FirstCluster();
+    }
+  }
+  return MAKE_ERROR(Error::kSuccess);
+}
+
+void FreeClusterChain(unsigned long cluster) {
+  uint32_t* fat = GetFAT();
+  while (cluster >= 2 && !IsEndOfClusterchain(cluster)) {
+    const unsigned long next = fat[cluster];
+    fat[cluster] = 0;
+    cluster = next;
+  }
+}
+
+bool DirectoryIsEmpty(unsigned long cluster) {
+  while (cluster != kEndOfClusterchain) {
+    auto dir = GetSectorByCluster<DirectoryEntry>(cluster);
+    for (size_t i = 0; i < bytes_per_cluster / sizeof(DirectoryEntry); ++i) {
+      if (dir[i].name[0] == 0x00) return true;
+      if (dir[i].name[0] == 0xe5 || dir[i].name[0] == '.') continue;
+      if (dir[i].attr == Attribute::kLongName) continue;
+      return false;
+    }
+    cluster = NextCluster(cluster);
+  }
+  return true;
+}
+
+}  // namespace
+
+bool IsValidShortName(const char* name) {
+  const size_t len = strlen(name);
+  if (len == 0 || len > 12 || strcmp(name, ".") == 0 || strcmp(name, "..") == 0) {
+    return false;
+  }
+  const char* dot = strchr(name, '.');
+  if (dot && strchr(dot + 1, '.')) return false;
+  const size_t base = dot ? dot - name : len;
+  const size_t ext = dot ? len - base - 1 : 0;
+  if (base == 0 || base > 8 || ext > 3) return false;
+  for (const char* p = name; *p; ++p) {
+    if (!isalnum(static_cast<unsigned char>(*p)) && *p != '_' && *p != '-' &&
+        *p != '.') {
+      return false;
+    }
+  }
+  return true;
+}
+
+WithError<DirectoryEntry*> CreateDirectory(const char* path) {
+  unsigned long parent;
+  const char* name;
+  if (auto err = ResolveParent(path, &parent, &name)) {
+    return { nullptr, err };
+  }
+  if (!IsValidShortName(name)) {
+    return { nullptr, MAKE_ERROR(Error::kInvalidFile) };
+  }
+  if (FindFile(path).first != nullptr) {
+    return { nullptr, MAKE_ERROR(Error::kAlreadyExists) };
+  }
+
+  const unsigned long cluster = AllocateClusterChain(1);
+  auto block = GetSectorByCluster<DirectoryEntry>(cluster);
+  memset(block, 0, bytes_per_cluster);
+  memset(block[0].name, ' ', 11);
+  block[0].name[0] = '.';
+  block[0].attr = Attribute::kDirectory;
+  SetFirstCluster(block[0], cluster);
+  memset(block[1].name, ' ', 11);
+  block[1].name[0] = '.';
+  block[1].name[1] = '.';
+  block[1].attr = Attribute::kDirectory;
+  SetFirstCluster(block[1], parent == boot_volume_image->root_cluster ? 0 : parent);
+
+  auto entry = AllocateEntry(parent);
+  if (entry == nullptr) {
+    FreeClusterChain(cluster);
+    return { nullptr, MAKE_ERROR(Error::kNoEnoughMemory) };
+  }
+  memset(entry, 0, sizeof(*entry));
+  SetFileName(*entry, name);
+  entry->attr = Attribute::kDirectory;
+  SetFirstCluster(*entry, cluster);
+  entry->file_size = 0;
+  return { entry, MAKE_ERROR(Error::kSuccess) };
+}
+
+Error RemoveEntry(const char* path) {
+  auto [ entry, post_slash ] = FindFile(path);
+  if (entry == nullptr) {
+    return MAKE_ERROR(Error::kNoSuchEntry);
+  }
+  if (entry->attr == Attribute::kDirectory) {
+    if (!DirectoryIsEmpty(entry->FirstCluster())) {
+      return MAKE_ERROR(Error::kNotEmpty);
+    }
+  } else if (post_slash) {
+    return MAKE_ERROR(Error::kNotDirectory);
+  }
+  FreeClusterChain(entry->FirstCluster());
+  entry->name[0] = 0xe5;
+  return MAKE_ERROR(Error::kSuccess);
+}
+
+Error MoveEntry(const char* src, const char* dst) {
+  auto [ s, post_slash ] = FindFile(src);
+  if (s == nullptr) {
+    return MAKE_ERROR(Error::kNoSuchEntry);
+  }
+  unsigned long parent;
+  const char* name;
+  if (auto err = ResolveParent(dst, &parent, &name)) {
+    return err;
+  }
+  if (!IsValidShortName(name)) {
+    return MAKE_ERROR(Error::kInvalidFile);
+  }
+  if (FindFile(dst).first != nullptr) {
+    return MAKE_ERROR(Error::kAlreadyExists);
+  }
+  auto entry = AllocateEntry(parent);
+  if (entry == nullptr) {
+    return MAKE_ERROR(Error::kNoEnoughMemory);
+  }
+  *entry = *s;
+  SetFileName(*entry, name);
+  s->name[0] = 0xe5;
+  if (entry->attr == Attribute::kDirectory && entry->FirstCluster() >= 2) {
+    // 移動先に合わせて ".." を付け替える
+    auto block = GetSectorByCluster<DirectoryEntry>(entry->FirstCluster());
+    SetFirstCluster(block[1], parent == boot_volume_image->root_cluster ? 0 : parent);
+  }
+  return MAKE_ERROR(Error::kSuccess);
 }
 
 } // namespace fat

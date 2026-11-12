@@ -211,4 +211,16 @@ class FileDescriptor : public ::FileDescriptor {
   size_t wr_cluster_off_ = 0;
 };
 
+/** @brief ディレクトリを作成する(. と .. を含む)。path の親ディレクトリは存在すること。 */
+WithError<DirectoryEntry*> CreateDirectory(const char* path);
+
+/** @brief ファイルまたは空のディレクトリを削除する。 */
+Error RemoveEntry(const char* path);
+
+/** @brief ファイル/ディレクトリを dst(親ディレクトリ+新しい名前)へ移動・改名する。 */
+Error MoveEntry(const char* src, const char* dst);
+
+/** @brief 8.3 形式で表せる名前か。 */
+bool IsValidShortName(const char* name);
+
 } // namespace fat
