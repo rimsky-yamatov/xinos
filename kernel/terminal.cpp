@@ -665,7 +665,7 @@ void Terminal::ExecuteLineImpl() {
     PrintToFD(*files_[1],
         "builtin: help ver uname uptime echo clear ls cat date memstat\n"
         "         cd pwd mkdir rmdir rm touch mv trash restore\n"
-        "         emptytrash sync disk\n"
+        "         emptytrash link unlink sync disk\n"
         "         lspci lsusb reboot poweroff noterm\n"
         "apps   : xasm xhl wc head tail grep sort more cp tedit paint ...\n");
   } else if (strcmp(command, "date") == 0) {
@@ -812,6 +812,52 @@ void Terminal::ExecuteLineImpl() {
       }
     }
     desktop::RefreshTrash();
+  } else if (strcmp(command, "link") == 0) {
+    // link [-s] [-t] <表示名> <アイコン(.XIC のパス / なしは -)> <コマンド...>
+    char buf[256];
+    strncpy(buf, first_arg ? first_arg : "", sizeof(buf) - 1);
+    buf[sizeof(buf) - 1] = '\0';
+    bool start_menu = false, with_terminal = false;
+    char* p = buf;
+    auto next_token = [&p]() -> char* {
+      while (*p == ' ') ++p;
+      if (!*p) return nullptr;
+      char* tok = p;
+      while (*p && *p != ' ') ++p;
+      if (*p) *p++ = '\0';
+      return tok;
+    };
+    char* label = next_token();
+    while (label && label[0] == '-' && label[1] && !label[2]) {
+      if (label[1] == 's') start_menu = true;
+      else if (label[1] == 't') with_terminal = true;
+      label = next_token();
+    }
+    char* icon = label ? next_token() : nullptr;
+    while (*p == ' ') ++p;
+    if (!label || !icon || !*p) {
+      PrintToFD(*files_[2], "usage: link [-s: start menu] [-t: show terminal] <label> <icon.xic|-> <command...>\n");
+      exit_code = 1;
+    } else if (desktop::AddShortcut(label, p, strcmp(icon, "-") == 0 ? "" : icon,
+                                    with_terminal, start_menu)) {
+      PrintToFD(*files_[2], "link: failed\n");
+      exit_code = 1;
+    }
+  } else if (strcmp(command, "unlink") == 0) {
+    bool start_menu = false;
+    const char* label = first_arg;
+    if (label && strncmp(label, "-s ", 3) == 0) {
+      start_menu = true;
+      label += 3;
+      while (*label == ' ') ++label;
+    }
+    if (!label || !*label) {
+      PrintToFD(*files_[2], "usage: unlink [-s] <label>\n");
+      exit_code = 1;
+    } else if (desktop::RemoveShortcut(label, start_menu)) {
+      PrintToFD(*files_[2], "unlink: no such shortcut: %s\n", label);
+      exit_code = 1;
+    }
   } else if (strcmp(command, "emptytrash") == 0) {
     if (auto err = fsops::EmptyTrash()) {
       PrintToFD(*files_[2], "emptytrash: %s\n", FsErrorText(err));

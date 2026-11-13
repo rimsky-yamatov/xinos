@@ -33,6 +33,7 @@
 #include "timer.hpp"
 #include "acpi.hpp"
 #include "persist.hpp"
+#include "desktop.hpp"
 #include "usb/classdriver/msc.hpp"
 #include "keyboard.hpp"
 #include "task.hpp"
@@ -208,6 +209,7 @@ extern "C" void KernelMainNewStack(
   if (persist::Mount()) {
     fat::Initialize(persist::Volume());
     printk("persistent disk: %lu MiB mounted\n", persist::VolumeBytes() >> 20);
+    desktop::Reload();  // 永続ボリュームのショートカットに切り替える
   }
 
   InitializeLayer();
