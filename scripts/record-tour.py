@@ -55,7 +55,7 @@ def near(a, b, tol=14):
     return all(abs(p - q) <= tol for p, q in zip(a, b))
 
 
-KEYS = {" ": "spc", ".": "dot", "/": "slash", "-": "minus", "_": "shift-minus",
+KEYS = {"!": "shift-1", " ": "spc", ".": "dot", "/": "slash", "-": "minus", "_": "shift-minus",
         ">": "shift-dot", ",": "comma", "\n": "ret", ":": "shift-semicolon"}
 
 
@@ -128,13 +128,22 @@ class Ctl:
 
 
 def script(c):
+    def open_from_menu(i):
+        """スタートボタン → メニューの i 番目をクリックして起動する。"""
+        yield from c.at(20, 775, 1.4)
+        yield from c.click()
+        yield 1.2
+        yield from c.at(110, 418 + 28 * i, 1.0)
+        yield 0.4
+        yield from c.click()
+
     # ---- 1. 起動 ----
     c.cap("電源オン → UEFI → 起動画面 → デスクトップ")
     yield from c.wait_desktop()
     yield 2.5
 
     # ---- 2. デスクトップ ----
-    c.cap("デスクトップ: 設定可能なアイコン")
+    c.cap("デスクトップ・設定できるアイコン")
     for y in (64, 152, 240, 328, 416, 504, 592):
         yield from c.at(48, y, 0.9)
         yield 0.8
@@ -152,6 +161,34 @@ def script(c):
     yield 9.0
     yield from c.click_at(164, 21, 1.2)      # Cube のウィンドウを閉じる(アイコンに重なるため)
     yield 1.0
+
+    # ---- 他のアプリ ----
+    c.cap("Stars(星空のアニメーション)")
+    yield from open_from_menu(8)
+    yield 7.0
+    yield from c.click_at(104, 21, 1.2)
+    yield 1.0
+
+    c.cap("Paint でお絵かき(マウスで描く)")
+    yield from open_from_menu(3)
+    yield 2.5
+    yield from c.at(60, 70, 1.0)
+    c.mon.cmd("mouse_button 1")
+    for (x, y) in ((110, 112), (70, 132), (150, 62), (192, 122), (100, 60)):
+        yield from c.glide(x, y, 0.9)
+    c.mon.cmd("mouse_button 0")
+    yield 3.5
+    yield from c.click_at(204, 21, 1.2)
+    yield 1.0
+
+    c.cap("Editor でテキストを入力")
+    yield from open_from_menu(2)
+    yield 2.5
+    yield from c.type("Hello from XinOS!\n", 0.14)
+    yield from c.type("This editor runs on my own OS.", 0.14)
+    yield 4.0
+    yield from c.click_at(648, 22, 1.4)
+    yield 1.5
 
     # ---- 3. ファイルマネージャ ----
     c.cap("ファイルマネージャ(Files)")
@@ -198,7 +235,7 @@ def script(c):
     yield 1.5
 
     # ---- 4. ターミナル ----
-    c.cap("ターミナル: コマンドとプログラミング言語 xhl")
+    c.cap("ターミナル・コマンドとプログラミング言語 xhl")
     yield from c.click_at(350, 212, 1.5)     # 前面のターミナルを選ぶ
     yield 0.8
     yield from c.cmdline("pwd")
@@ -237,8 +274,8 @@ def script(c):
     yield from c.cmdline("cat /home/memo.txt", 2.0)
     yield from c.cmdline("ls /home", 2.5)
     yield from c.cmdline("ls /desktop", 3.0)
-    c.cap("XinOS: MikanOS ベースの x86-64 UEFI OS")
-    yield 6.0
+    c.cap("XinOS・MikanOS ベースの x86-64 UEFI OS")
+    yield 10.0
 
 
 def main():
