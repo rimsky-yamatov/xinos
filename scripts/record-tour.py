@@ -217,7 +217,7 @@ def script(c):
     yield from c.cmdline("ls", 2.0)
     c.cap("link コマンドでアプリにアイコンを設定")
     yield from c.cmdline("link MyEdit /icons/EDITOR.XIC tedit", 3.0)
-    yield from c.at(160, 60, 1.5)
+    yield from c.at(150, 66, 1.5)             # 追加された MyEdit アイコン(2列目の先頭)
     yield 3.0
     c.cap("永続ディスクにつながっている")
     yield from c.click_at(350, 212, 1.5)
@@ -229,7 +229,7 @@ def script(c):
     yield from c.wait_reboot()
     c.cursor = [200, 200]
     yield 2.0
-    yield from c.at(160, 60, 1.5)
+    yield from c.at(150, 66, 1.5)
     yield 2.5
     yield from c.click_at(350, 212, 1.5)
     yield from c.cmdline("cat /home/memo.txt", 2.0)
