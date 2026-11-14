@@ -150,6 +150,8 @@ def script(c):
     yield from c.click()
     c.cap("Cube を起動(3D描画アプリ)")
     yield 9.0
+    yield from c.click_at(164, 21, 1.2)      # Cube のウィンドウを閉じる(アイコンに重なるため)
+    yield 1.0
 
     # ---- 3. ファイルマネージャ ----
     c.cap("ファイルマネージャ(Files)")
