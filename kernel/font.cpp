@@ -197,3 +197,5 @@ void InitializeFont() {
     exit(1);
   }
 }
+
+const uint8_t* GetFontGlyph(char c) { return GetFont(c); }

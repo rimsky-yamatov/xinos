@@ -269,7 +269,11 @@ EFI_STATUS EFIAPI UefiMain(
     EFI_SYSTEM_TABLE* system_table) {
   EFI_STATUS status;
 
-  Print(L"Hello, Mikan World!\n");
+  // 起動画面(カーネル側のスプラッシュ)につなぐため、UEFIコンソールは黒背景にしておく
+  system_table->ConOut->SetAttribute(system_table->ConOut,
+                                     EFI_LIGHTGRAY | EFI_BACKGROUND_BLACK);
+  system_table->ConOut->ClearScreen(system_table->ConOut);
+  system_table->ConOut->EnableCursor(system_table->ConOut, FALSE);
 
   CHAR8 memmap_buf[4096 * 4];
   struct MemoryMap memmap = {sizeof(memmap_buf), memmap_buf, 0, 0, 0, 0};
@@ -325,7 +329,7 @@ EFI_STATUS EFIAPI UefiMain(
 
   UINT8* frame_buffer = (UINT8*)gop->Mode->FrameBufferBase;
   for (UINTN i = 0; i < gop->Mode->FrameBufferSize; ++i) {
-    frame_buffer[i] = 255;
+    frame_buffer[i] = 0;  // 黒で塗る(起動画面まで白い画面を見せない)
   }
 
   EFI_FILE_PROTOCOL* kernel_file;

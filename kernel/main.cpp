@@ -33,6 +33,7 @@
 #include "timer.hpp"
 #include "acpi.hpp"
 #include "persist.hpp"
+#include "splash.hpp"
 #include "desktop.hpp"
 #include "usb/classdriver/msc.hpp"
 #include "keyboard.hpp"
@@ -41,6 +42,16 @@
 #include "fat.hpp"
 #include "syscall.hpp"
 #include "uefi.hpp"
+
+namespace {
+// 何も描かない PixelWriter(起動画面の間コンソールを黙らせる)
+class NullWriter : public PixelWriter {
+ public:
+  void Write(Vector2D<int>, const PixelColor&) override {}
+  int Width() const override { return 0; }
+  int Height() const override { return 0; }
+};
+}
 
 __attribute__((format(printf, 1, 2))) int printk(const char* format, ...) {
   va_list ap;
@@ -192,6 +203,12 @@ extern "C" void KernelMainNewStack(
   InitializeGraphics(frame_buffer_config_ref);
   InitializeConsole();
 
+  // 起動画面を出している間はコンソールの出力を画面に出さない(後で Refresh で表示される)
+  static NullWriter null_writer;
+  console->SetWriter(&null_writer);
+  acpi::Initialize(acpi_table);
+  splash::Show();
+
   printk("Welcome to XinOS!\n");
   SetLogLevel(kWarn);
 
@@ -212,12 +229,14 @@ extern "C" void KernelMainNewStack(
     desktop::Reload();  // 永続ボリュームのショートカットに切り替える
   }
 
+  splash::RunUntil(4000);          // 以降のレイヤー初期化などを含めて、起動画面は約5秒
+  console->SetWriter(screen_writer);
+
   InitializeLayer();
   InitializeMainWindow();
   InitializeTextWindow();
   layer_manager->Draw({{0, 0}, ScreenSize()});
 
-  acpi::Initialize(acpi_table);
   InitializeLAPICTimer();
 
   const int kTextboxCursorTimer = 1;

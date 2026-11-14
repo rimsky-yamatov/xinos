@@ -9,6 +9,8 @@
 #include "graphics.hpp"
 #include "error.hpp"
 
+/** @brief 8x16 ビットマップフォントの1文字分(16バイト)を返す。範囲外は nullptr */
+const uint8_t* GetFontGlyph(char c);
 void WriteAscii(PixelWriter& writer, Vector2D<int> pos, char c, const PixelColor& color);
 void WriteString(PixelWriter& writer, Vector2D<int> pos, const char* s, const PixelColor& color);
 
