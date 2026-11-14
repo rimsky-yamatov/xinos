@@ -94,10 +94,18 @@ Window::WindowWriter* Window::Writer() {
 }
 
 const PixelColor& Window::At(Vector2D<int> pos) const{
+  if (pos.x < 0 || pos.y < 0 || pos.x >= width_ || pos.y >= Height()) {
+    static const PixelColor outside{0, 0, 0};
+    return outside;
+  }
   return data_[pos.y][pos.x];
 }
 
 void Window::Write(Vector2D<int> pos, PixelColor c) {
+  // ウィンドウの外への描画は無視する(アプリが範囲外の座標を描いてもカーネルが落ちないように)
+  if (pos.x < 0 || pos.y < 0 || pos.x >= width_ || pos.y >= Height()) {
+    return;
+  }
   data_[pos.y][pos.x] = c;
   shadow_buffer_.Writer().Write(pos, c);
 }
