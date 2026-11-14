@@ -6,7 +6,7 @@
 
 /**
  * @file desktop.hpp
- * デスクトップアイコン(/desktop/*.LNK)・スタートメニュー(/startmenu/*.LNK)・ゴミ箱アイコン。
+ * デスクトップアイコン(/desktop/*.LNK)・スタートメニュー(/menu/*.LNK)・ゴミ箱アイコン。
  *
  * ショートカット(.LNK)は "key=value" の行からなるテキスト:
  *   name=表示名 / exec=実行するコマンド / icon=XICの絶対パス /

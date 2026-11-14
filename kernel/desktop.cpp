@@ -165,7 +165,7 @@ void AddFallback(std::vector<Shortcut>* out, const char* label, const char* comm
 
 void LoadAll() {
   LoadDir("/desktop", &icons);
-  LoadDir("/startmenu", &menu);
+  LoadDir("/menu", &menu);
   if (icons.empty()) {
     AddFallback(&icons, "Terminal", "", true);
     AddFallback(&icons, "Editor", "tedit", false);
@@ -396,7 +396,7 @@ bool OnMousePress(Vector2D<int> pos) {
 
 int AddShortcut(const char* label, const char* command, const char* icon_path,
                 bool terminal, bool start_menu) {
-  const char* dir = start_menu ? "/startmenu" : "/desktop";
+  const char* dir = start_menu ? "/menu" : "/desktop";
   if (fat::FindFile(dir).first == nullptr && fat::CreateDirectory(dir).error) return 1;
   RemoveShortcut(label, start_menu);
   char base[16], path[64], text[400];
@@ -413,7 +413,7 @@ int AddShortcut(const char* label, const char* command, const char* icon_path,
 }
 
 int RemoveShortcut(const char* label, bool start_menu) {
-  const char* dir = start_menu ? "/startmenu" : "/desktop";
+  const char* dir = start_menu ? "/menu" : "/desktop";
   fsops::DirInfo info;
   for (int i = 0; fsops::ReadDir(dir, i, &info); ++i) {
     char path[64], text[512];

@@ -4,7 +4,7 @@
 使い方: tools/mkicons.py <出力ディレクトリ> [--sheet sheet.png]
   <出力>/icons/*.XIC       アイコン
   <出力>/desktop/*.LNK     デスクトップのショートカット
-  <出力>/startmenu/*.LNK   スタートメニューの項目
+  <出力>/menu/*.LNK   スタートメニューの項目
 
 XIC 形式: "XIC1" + u8 幅 + u8 高さ + (幅*高さ) 個の 32bit ARGB(リトルエンディアン, A=0 は透過)
 LNK 形式: "key=value" の行。name / exec / icon / terminal(0|1) / cwd / special(trash)
@@ -294,7 +294,7 @@ def main():
         print(__doc__)
         return 1
     out = sys.argv[1]
-    for d in ("icons", "desktop", "startmenu"):
+    for d in ("icons", "desktop", "menu"):
         os.makedirs(os.path.join(out, d), exist_ok=True)
     sheet_items = []
     for sizes, table in ((48, ICONS48), (16, ICONS16)):
@@ -310,7 +310,7 @@ def main():
         write_lnk(os.path.join(out, "desktop", f"{i + 1:02d}{key}.LNK"), *s[1:])
     for i, key in enumerate(STARTMENU):
         s = table[key]
-        write_lnk(os.path.join(out, "startmenu", f"{i + 1:02d}{key}.LNK"), *s[1:])
+        write_lnk(os.path.join(out, "menu", f"{i + 1:02d}{key}.LNK"), *s[1:])
     if "--sheet" in sys.argv:
         make_sheet(sys.argv[sys.argv.index("--sheet") + 1], sheet_items)
     print(f"wrote {len(ICONS48) + len(ICONS16)} icons, {len(DESKTOP)} desktop and {len(STARTMENU)} start-menu shortcuts to {out}")

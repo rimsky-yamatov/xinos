@@ -73,7 +73,7 @@ sudo dd if=build/xinos-install.img of=/dev/<対象ディスク> bs=4M conv=fsync
 ## デスクトップ
 - 左下の「XinOS」ボタンでスタートメニュー、デスクトップのアイコンはダブルクリックで起動します
 - アイコンとメニューは、ボリューム上のファイルから**動的に**作られます。アプリごとにアイコンを設定できます
-  - `/desktop/*.LNK` … デスクトップのショートカット / `/startmenu/*.LNK` … スタートメニューの項目
+  - `/desktop/*.LNK` … デスクトップのショートカット / `/menu/*.LNK` … スタートメニューの項目
   - `/icons/*.XIC` … アイコン画像(`"XIC1"` + 幅 + 高さ + 32bit ARGB。生成は `tools/mkicons.py`)
   - LNK は `key=value` のテキスト: `name=` `exec=` `icon=` `terminal=0|1` `cwd=` `special=trash`
 - シェルから設定: `link [-s] [-t] <表示名> <アイコン.XIC | -> <コマンド...>`(`-s` でスタートメニュー、`-t` で端末ウィンドウ付き)、`unlink [-s] <表示名>`
