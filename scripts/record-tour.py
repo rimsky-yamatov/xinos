@@ -159,7 +159,7 @@ def script(c):
     yield 3.0
     yield from c.click_at(186, 89)           # "/"
     yield 2.0
-    yield from c.dbl_at(170, 223)            # SAMPLES
+    yield from c.dbl_at(170, 245)            # SAMPLES(APPS DESKTOP HOME ICONS MENU SAMPLES の6行目)
     yield 2.5
     c.cap("ファイルをダブルクリックで実行(xhl)")
     yield from c.dbl_at(170, 223)            # PRIMES.XH
