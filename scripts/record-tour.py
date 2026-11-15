@@ -189,6 +189,8 @@ def script(c):
     yield 4.0
     yield from c.click_at(648, 22, 1.4)
     yield 1.5
+    yield from c.click_at(334, 208, 1.0)     # 「変更を破棄しますか?」の Discard
+    yield 1.5
 
     # ---- 3. ファイルマネージャ ----
     c.cap("ファイルマネージャ(Files)")
