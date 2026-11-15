@@ -4,14 +4,14 @@
 QEMU(UEFI)を起動し、モニタの screendump で画面を連続キャプチャしながら、
 マウス操作を自動で行って mp4 にまとめる。
 必要なもの: qemu-system-x86, ovmf, ffmpeg, build/xinos.iso (scripts/mkiso.sh)
-使い方: scripts/record-demo.py [出力mp4] [起動するメニュー項目の番号(0始まり、既定5=Cube)]
+使い方: scripts/record-demo.py [出力mp4] [起動するメニュー項目の番号(0始まり、既定6=Cube)]
 """
 import os, shutil, socket, subprocess, sys, time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, "build", "xinos-demo.mp4")
-ITEM = int(sys.argv[2]) if len(sys.argv) > 2 else 5
-LABELS = ["Terminal", "Editor", "Paint", "Viewer", "Blocks", "Cube", "Eye", "Stars"]
+ITEM = int(sys.argv[2]) if len(sys.argv) > 2 else 6
+LABELS = ["Terminal", "Files", "Editor", "Paint", "Viewer", "Blocks", "Cube", "Eye", "Stars", "Trash"]
 FONT = os.path.join(ROOT, "resource", "nihongo.ttf")
 FRAMES = "/tmp/xinos-frames"
 MON = "/tmp/xinos-demo-mon"
@@ -21,7 +21,8 @@ W, H = 1280, 800
 
 # 画面レイアウト(kernel/desktop.cpp と対応)
 START_BTN = (20, H - 25)
-MENU_TOP = H - 50 - (10 * 28 + 4 * 2 + 6)
+MENU_ITEMS = 10                       # /menu のショートカット数(+ Reboot / Shut down)
+MENU_TOP = H - 50 - ((MENU_ITEMS + 2) * 28 + 4 * 2 + 6)
 def menu_item_pos(i):
     return (80, MENU_TOP + 4 + i * 28 + 14)
 
@@ -115,8 +116,8 @@ def main():
           if n % 5 == 0 and now > 5:
             # アイコン(Terminal=暗灰, Editor=黄)が描画されたらデスクトップ表示完了
             mon.cmd(f"screendump {PROBE}")
-            if near(pixel(PROBE, 48, 64), (40, 40, 40)) and \
-               near(pixel(PROBE, 48, 152), (230, 200, 60)):
+            # タスクバーの Start ボタン(青い四角)が描かれたらデスクトップ表示完了
+            if near(pixel(PROBE, 25, 775), (45, 118, 237)):
                 ready_at = now
                 marks["desktop"] = now
                 t = now + 2.5
